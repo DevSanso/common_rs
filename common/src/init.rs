@@ -10,13 +10,13 @@ use crate::ErrorDesc;
 use crate::COMMON_ERROR_CATEGORY;
 
 pub struct LoggerConfig<'a> {
-    log_level : &'a str,
-    log_file : Option<&'a str>
+    pub log_level : &'a str,
+    pub log_file : Option<&'a str>
 }
 
 pub struct ErrorCodeConfig {
-    category_id :ErrorCategory, 
-    errs : Vec<(ErrorCode, ErrorDesc)>
+    pub category_id :ErrorCategory, 
+    pub errs : Vec<(ErrorCode, ErrorDesc)>
 }
 pub fn init_common(logger : LoggerConfig<'_>, errors : ErrorCodeConfig) -> Result<(), Box<dyn Error>>{
     signal::init_once();
@@ -24,7 +24,7 @@ pub fn init_common(logger : LoggerConfig<'_>, errors : ErrorCodeConfig) -> Resul
     logger::init_once(logger.log_level, logger.log_file)?;
 
     if errors.category_id == COMMON_ERROR_CATEGORY {
-        return crate::error_code::common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError)
+        //return crate::error_code::common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError)
     }
 
     common_conn::err::common_conn_init();

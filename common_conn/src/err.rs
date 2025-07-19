@@ -1,4 +1,4 @@
-use common_core::err::{ErrorCategory, ErrorCode, ErrorDesc, push_error_list};
+use common_core::err::{ErrorCategory, ErrorDesc, push_error_list};
 
 
 pub const COMMON_CONN_ERROR_CATEGORY : ErrorCategory = 2;

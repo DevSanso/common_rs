@@ -4,7 +4,10 @@ use std::error::Error;
 use std::collections::HashMap;
 use std::sync::Once;
 use std::sync::OnceLock;
+use std::panic::Location;
+use backtrace::Backtrace;
 
+use backtrace::BacktraceFrame;
 pub use common_err::COMMON_ERROR_CATEGORY;
 
 pub type ErrorCategory = u32;
@@ -15,7 +18,7 @@ pub struct ErrorDesc(&'static str /* desc*/, &'static str /* detail*/);
 
 #[derive(Debug)]
 pub struct CommonImplError {
-    func : &'static str,
+    func : String,
     file : &'static str,
     category : ErrorCategory,
     desc : &'static ErrorDesc,
@@ -29,15 +32,19 @@ impl ErrorDesc {
 }
 
 impl CommonImplError {
-    pub fn new(func : &'static str, file : &'static str, category : ErrorCategory, desc : &'static ErrorDesc, message : String) -> Self {
+    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : &'static ErrorDesc, message : String) -> Self {
         CommonImplError {func: func, file : file, category : category, desc : desc, message : message}
+    }
+
+    pub fn as_error<T>(self) -> Result<T, Box<dyn Error>>{
+        Err(Box::new(self))
     }
 }
 
 impl std::fmt::Display for CommonImplError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[category:{}][func:{}][file:{}][desc:{}] - {}\n",
-            self.category, self.func, self.file, self.desc.0, self.message)?;
+            self.category, self.func.as_str(), self.file, self.desc.0, self.message)?;
         
         std::fmt::Result::Ok(())
     }
@@ -91,15 +98,37 @@ pub fn push_error_list(category_id :ErrorCategory, mut errs : Vec<(ErrorCode, Er
     }
     
 }
-pub fn create_error(func : &'static str, file : &'static str,
-    category_id :ErrorCategory, code : ErrorCode, msg : String) -> CommonImplError {
+
+fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
+    if let Some(frame) = frames.get(1) {
+        for symbol in frame.symbols() {
+            if let Some(name) = symbol.name() {
+                return name.as_str().unwrap().to_string();
+            }
+        }
+    }
+
+    return String::from("")
+}
+
+#[track_caller]
+pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String) -> CommonImplError {
+    let mut ret_err : Option<&ErrorDesc> = None;
     unsafe {
         let g = GLOBAL_ERROR_LIST.get().unwrap();
         let e = match g.errors.get(&(category_id, code)) {
             Some(s) => s,
             None => g.errors.get(&(COMMON_ERROR_CATEGORY, "UnknownError")).unwrap()
         };
-
-        CommonImplError::new(func, file, category_id, e, msg)
+        ret_err = Some(e);
     }
+    let loc = Location::caller();
+
+    let mut bt = Backtrace::new_unresolved();
+    bt.resolve();
+
+    let func = decode_bt_frames(bt.frames());
+    // 보통 첫 번째 프레임은 현재 함수 (log_caller), 두 번째가 상위 호출자
+
+    CommonImplError::new(func, loc.file(), category_id, ret_err.unwrap(), msg)
 }

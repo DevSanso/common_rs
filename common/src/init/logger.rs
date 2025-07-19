@@ -4,8 +4,8 @@ use std::process::Command;
 
 use ftail::Ftail;
 use log::LevelFilter;
-use common_core::common_make_err;
-use common_core::err::COMMON_ERROR_CATEGORY;
+
+use common_core::err::{COMMON_ERROR_CATEGORY, create_error};
 
 fn convert_str_to_log_level(log_level : &'_ str) -> LevelFilter {
     match log_level {
@@ -43,13 +43,17 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
                 .ok();
             
             if output_opt.is_none() {
-                ret = common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError, "sh failed");
+                ret = create_error(COMMON_ERROR_CATEGORY, 
+                    "ApiCallError", 
+                    "sh failed".to_string()).as_error();
                 return;
             }
 
             let output = output_opt.unwrap();
             if !output.status.success() {
-                ret = common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError, "sh failed");
+                ret = create_error(COMMON_ERROR_CATEGORY, 
+                    "ApiCallError", 
+                    "sh failed".to_string()).as_error();
                 return;
             }
 
@@ -58,7 +62,9 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
                 let chk_write = std::fs::OpenOptions::new().write(true).open(file_path.trim().to_string());
             
                 if chk_write.is_err() {
-                    ret = common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError, "{}", chk_write.unwrap_err());
+                    ret = create_error(COMMON_ERROR_CATEGORY, 
+                        "ApiCallError", 
+                        chk_write.unwrap_err().to_string()).as_error();
                     return;
                 }
             }
@@ -73,10 +79,12 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
 
             ret = match ftail.init() {
                 Ok(_) => Ok(()),
-                Err(e) => common_make_err!(COMMON_ERROR_CATEGORY, ApiCallError, "{}", e)
+                Err(e) => create_error(COMMON_ERROR_CATEGORY, 
+                    "ApiCallError", 
+                    e.to_string()).as_error()
             }
         }
     });
-    
+
     ret
 }

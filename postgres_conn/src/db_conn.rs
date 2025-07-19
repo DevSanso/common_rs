@@ -4,8 +4,8 @@ use common_conn::CommonSqlExecuteResultSet;
 use postgres::types::ToSql;
 use postgres::types::Type;
 
-use common_core::common_make_err;
-use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue};
+use common_core::err::{create_error, COMMON_ERROR_CATEGORY};
+use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue, COMMON_CONN_ERROR_CATEGORY};
 
 pub struct PostgresConnection {
     client : postgres::Client   
@@ -33,7 +33,9 @@ impl PostgresConnection {
         
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
-            Err(err) => common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, GetConnectionFailedError, "{}", err.to_string())
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "GetConnectionFailedError", 
+                err.to_string()).as_error()
         }?;
 
         Ok(PostgresConnection {
@@ -53,8 +55,9 @@ impl CommonSqlConnection for PostgresConnection {
                 CommonValue::Binrary(v) => Ok(v),
                 CommonValue::String(t) => Ok(t),
                 _ => {
-                    let err_error : Result<&(dyn ToSql + Sync), Box<dyn Error>> = common_make_err!(common_core::err::COMMON_ERROR_CATEGORY, CriticalError, "not support type({:?}), return null", x);
-                    err_error
+                    create_error(COMMON_ERROR_CATEGORY, 
+                        "CriticalError", 
+                        format!("not support type({:?}), return null", x)).as_error()
                 }
             };
             convert
@@ -62,8 +65,12 @@ impl CommonSqlConnection for PostgresConnection {
 
         let rows = match self.client.query(query, pg_param.as_slice()) {
             Ok(ok) => Ok(ok),
-            Err(err) =>  common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, CommandRunError, "{}",err.to_string())
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "CommandRunError", 
+                err.to_string()).as_error()
         }?;
+
+
 
         let mut ret = CommonSqlExecuteResultSet::default();
 
@@ -89,7 +96,9 @@ impl CommonSqlConnection for PostgresConnection {
                     &Type::INT8 => Ok(get_pg_data!(row, col_idx, i64, CommonValue, BigInt)),
                     &Type::BYTEA => Ok(get_pg_data!(row, col_idx, Vec<u8>, CommonValue, Binrary)),
                     _ => {
-                        common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "not support this type({}), return NULL", cols_t[col_idx])
+                        create_error(COMMON_CONN_ERROR_CATEGORY, 
+                            "ResponseScanError", 
+                            format!("not support this type({}), return NULL", cols_t[col_idx])).as_error()
                     }
                 }?;
 
@@ -105,8 +114,12 @@ impl CommonSqlConnection for PostgresConnection {
         let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW())::bigint AS unix_timestamp;", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "not exists now return data");
+            return create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "ResponseScanError", 
+                "not exists now return data".to_string()).as_error();
         }
+
+
 
         let data = match ret.cols_data[0][0] {
             CommonValue::BigInt(bi) => bi,

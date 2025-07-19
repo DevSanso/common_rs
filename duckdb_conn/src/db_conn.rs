@@ -4,8 +4,8 @@ use duckdb;
 use duckdb::types::ToSql;
 use duckdb::arrow::datatypes::DataType;
 
-use common_core::common_make_err;
-use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue};
+use common_core::err::{create_error, COMMON_ERROR_CATEGORY};
+use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue, COMMON_CONN_ERROR_CATEGORY};
 
 pub struct DuckDBConnection {
     client : duckdb::Connection
@@ -26,8 +26,9 @@ impl DuckDBConnection {
 impl CommonSqlConnection for DuckDBConnection {
     fn execute(&mut self, query : &'_ str, param : &'_ [CommonValue]) -> Result<common_conn::CommonSqlExecuteResultSet, Box<dyn std::error::Error>> {
         let mut prepare = self.client.prepare(query).map_err(|x| {
-            let e : Result<(), Box<dyn Error>> = common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ConnectionApiCallError, "{}", x);
-            e.unwrap_err()
+            create_error(COMMON_ERROR_CATEGORY, 
+                "ConnectionApiCallError", 
+                x.to_string()).as_error::<()>().err().unwrap()
         })?;
 
         let duck_param  = param.iter().map(| x | {
@@ -38,10 +39,10 @@ impl CommonSqlConnection for DuckDBConnection {
                 CommonValue::Double(f) => Ok(f),
                 CommonValue::Binrary(v) => Ok(v),
                 CommonValue::String(t) => Ok(t),
-                _ => {
-                    let err_error : Result<&(dyn ToSql), Box<dyn Error>> = common_make_err!(common_core::err::COMMON_ERROR_CATEGORY, CriticalError, "not support type({:?}), return null", x);
-                    err_error
-                }
+                _ => create_error(COMMON_ERROR_CATEGORY, 
+                        "CriticalError", 
+                        format!("not support type({:?}), return null", x)).as_error()
+                
             };
             convert
         }).collect::<Result<Vec<&(dyn ToSql)>, Box<dyn Error>>>()?;
@@ -55,14 +56,17 @@ impl CommonSqlConnection for DuckDBConnection {
         ret.cols_data = Vec::with_capacity(10);
 
         let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
-            let err_error : Result<(), Box<dyn Error>> = common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, CommandRunError, "{}", x);
-            err_error.unwrap_err()
+            create_error(COMMON_ERROR_CATEGORY, 
+                "CommandRunError", 
+                x.to_string()).as_error::<()>().err().unwrap()
         })?;
 
         loop  {
             let row = rows.next();
             if row.is_err() {
-                return common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ConnectionApiCallError, "{}", row.err().unwrap());
+                return create_error(COMMON_ERROR_CATEGORY, 
+                    "ConnectionApiCallError", 
+                    row.err().unwrap().to_string()).as_error();
             }
 
             let r = row.unwrap();
@@ -97,7 +101,9 @@ impl CommonSqlConnection for DuckDBConnection {
                         let conv : Vec<u8> = r_data.get(idx).unwrap();
                         Ok(CommonValue::Binrary(conv))
                     },
-                    _ => common_make_err!(common_core::err::COMMON_ERROR_CATEGORY, NoSupportError, "not exists col type data")
+                    _ => create_error(COMMON_ERROR_CATEGORY, 
+                        "NoSupportError", 
+                        "not exists col type data".to_string()).as_error()
                 };
 
                 common_row.push(data?);
@@ -113,8 +119,9 @@ impl CommonSqlConnection for DuckDBConnection {
         let data : i64 = self.client.query_row(
             "SELECT CAST(extract(epoch FROM current_timestamp) AS INTEGER) AS unix_time", [], |r| r.get(0))
             .map_err(|x| {
-                let e : Result<(), Box<dyn Error>> = common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "{}", x);
-                e.unwrap_err()
+                create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    "ResponseScanError", 
+                    x.to_string()).as_error::<()>().err().unwrap()
             })?;
         
         Ok(std::time::Duration::from_secs(data as u64))

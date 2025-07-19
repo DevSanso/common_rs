@@ -5,8 +5,8 @@ use std::collections::VecDeque;
 use std::error::Error;
 
 use crate::collection::pool::{PoolItem,ThreadSafePool};
-use crate::utils::macros::common_make_err_crate;
 use crate::err::COMMON_ERROR_CATEGORY;
+use crate::err::create_error;
 
 pub(super) trait PoolCommander<T> {
     fn dispose(&self, item : T);
@@ -103,12 +103,16 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
                     let gen_item = (self.gen)(p);
                 if gen_item.is_err() {
                     let err_msg = gen_item.err().unwrap();
-                    return common_make_err_crate!(COMMON_ERROR_CATEGORY, GenResultIsNoneError, "pool_name:{}\n{}", self.pool_name, err_msg);
+                    return create_error(COMMON_ERROR_CATEGORY, 
+                        "GenResultIsNoneError", 
+                        format!("pool_name:{}\n{}", self.pool_name, err_msg)).as_error();
                 }
                 g.items.push_back(gen_item.unwrap());
                 g.alloc_size += 1;
                 } else {
-                    return common_make_err_crate!(COMMON_ERROR_CATEGORY, MaxSizedError, "pool_name:{}", self.pool_name);
+                    return create_error(COMMON_ERROR_CATEGORY, 
+                        "MaxSizedError", 
+                        format!("pool_name:{}", self.pool_name)).as_error();
                 }
             }
         }   

@@ -6,9 +6,9 @@ use scylla::Session;
 use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 
-use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo};
+use common_core::err::{create_error};
+use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo, COMMON_CONN_ERROR_CATEGORY};
 use scylla::SessionBuilder;
-use common_core::common_make_err;
 use crate::db_conn::utils::ScyllaFetcher;
 pub struct ScyllaCommonSqlConnection {
     session : Session,
@@ -18,9 +18,11 @@ pub struct ScyllaCommonSqlConnection {
 impl ScyllaCommonSqlConnection {
     pub(crate) fn new(infos : Vec<CommonSqlConnectionInfo>) -> Result<Self, Box<dyn Error>> {
         if infos.len() <= 0 {
-            return common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, GetConnectionFailedError, "scylla connection info array size of zero");
+            return create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "GetConnectionFailedError", 
+                "scylla connection info array size of zero".to_string()).as_error();
         }
-        
+     
         let mut builder = SessionBuilder::new();
         
         for info in infos {
@@ -40,7 +42,9 @@ impl ScyllaCommonSqlConnection {
 
         match block {
             Ok(ok) => Ok(ScyllaCommonSqlConnection{session : ok, rt : rt}),
-            Err(err) => common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, GetConnectionFailedError, "{}", err)
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "GetConnectionFailedError", 
+                err.to_string()).as_error()
         }
     }
 }
@@ -52,9 +56,11 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
 
         let prepare = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ConnectionApiCallError, "{}", err)
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "ConnectionApiCallError", 
+                err.to_string()).as_error()
         }?;
-        
+
         let mut result = CommonSqlExecuteResultSet::default();
 
         let mut typ = Vec::new();
@@ -81,7 +87,9 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         let feature = self.session.execute_unpaged(&prepare, real_param);
         let query_result = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, CommandRunError, "{}", err)
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "CommandRunError", 
+                err.to_string()).as_error()
         }?;
 
         if typ.len() <= 0 {
@@ -90,14 +98,17 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         
         let rows = match query_result.into_rows_result() {
             Ok(ok) => Ok(ok),
-            Err(err) => common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "{}", err)
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "ResponseScanError", 
+                err.to_string()).as_error()
         }?;
-        
+
         let mut fetcher = ScyllaFetcher::new(&rows, &typ);
 
         fetcher.fetch(&mut result).map_err(|e| {
-            let err_error : Result<(), Box<dyn Error>> = common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "{}", e);
-            err_error.unwrap_err()
+            create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "ResponseScanError", 
+                e.to_string()).as_error::<()>().err().unwrap()
         })?;
 
         Ok(result)
@@ -107,7 +118,9 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         let ret = self.execute("SELECT CAST(toUnixTimestamp(now()) AS BIGINT) AS unix_timestamp  FROM system.local", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return common_make_err!(common_conn::COMMON_CONN_ERROR_CATEGORY, ResponseScanError, "not exists now return data");
+            return create_error(COMMON_CONN_ERROR_CATEGORY, 
+                "ResponseScanError", 
+                "not exists now return data".to_string()).as_error();
         }
 
         let data = match ret.cols_data[0][0] {

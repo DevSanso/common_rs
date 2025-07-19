@@ -1,5 +1,5 @@
-mod init;
-mod utils;
+pub mod init;
+pub mod utils;
 pub mod db;
 
 pub use common_core::err::{ErrorCode, ErrorCategory, ErrorDesc, COMMON_ERROR_CATEGORY};
@@ -29,9 +29,6 @@ pub mod signal {
     }
 }
 
-pub mod error_code {
-    pub use common_core::common_make_err;
+pub mod err {
+    pub use common_core::err::{COMMON_ERROR_CATEGORY, create_error, ErrorCategory, ErrorCode};
 }
-
-
-
