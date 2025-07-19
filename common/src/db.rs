@@ -3,6 +3,8 @@ use duckdb_conn;
 use postgres_conn;
 use scylla_conn;
 
+pub use common_conn::*;
+
 pub enum DatabaseType {
     POSTGRES,
     SCYLLA,
