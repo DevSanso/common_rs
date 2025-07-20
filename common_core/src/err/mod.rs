@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use std::sync::Once;
 use std::sync::OnceLock;
 use std::panic::Location;
-use backtrace::Backtrace;
 
+use rustc_demangle::demangle;
+use backtrace::Backtrace;
 use backtrace::BacktraceFrame;
 pub use common_err::COMMON_ERROR_CATEGORY;
 
@@ -103,7 +104,8 @@ fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
     if let Some(frame) = frames.get(1) {
         for symbol in frame.symbols() {
             if let Some(name) = symbol.name() {
-                return name.as_str().unwrap().to_string();
+                let de = demangle(name.as_str().unwrap());
+                return format!("{}", de);
             }
         }
     }
@@ -129,6 +131,6 @@ pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String) 
 
     let func = decode_bt_frames(bt.frames());
     // 보통 첫 번째 프레임은 현재 함수 (log_caller), 두 번째가 상위 호출자
-
+    println!("## {}", func);
     CommonImplError::new(func, loc.file(), category_id, ret_err.unwrap(), msg)
 }
