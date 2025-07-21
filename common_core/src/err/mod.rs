@@ -2,27 +2,29 @@ mod common_err;
 
 use std::error::Error;
 use std::collections::HashMap;
-use std::sync::Once;
-use std::sync::OnceLock;
+use std::sync::{ RwLockWriteGuard, RwLock, OnceLock};
 use std::panic::Location;
+use std::sync::atomic::AtomicBool;
 
 use rustc_demangle::demangle;
 use backtrace::Backtrace;
 use backtrace::BacktraceFrame;
-pub use common_err::COMMON_ERROR_CATEGORY;
+pub use common_err::*;
+
 
 pub type ErrorCategory = u32;
 pub type ErrorCode     = &'static str;
 
-#[derive(Debug)]
-pub struct ErrorDesc(&'static str /* desc*/, &'static str /* detail*/);
+#[derive(Debug, Clone)]
+
+pub struct ErrorDesc(&'static str /* desc*/, #[allow(dead_code)] &'static str /* detail*/);
 
 #[derive(Debug)]
 pub struct CommonImplError {
     func : String,
     file : &'static str,
     category : ErrorCategory,
-    desc : &'static ErrorDesc,
+    desc : ErrorDesc,
     message : String
 }
 
@@ -33,7 +35,7 @@ impl ErrorDesc {
 }
 
 impl CommonImplError {
-    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : &'static ErrorDesc, message : String) -> Self {
+    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : ErrorDesc, message : String) -> Self {
         CommonImplError {func: func, file : file, category : category, desc : desc, message : message}
     }
 
@@ -65,37 +67,79 @@ impl Error for CommonImplError  {
     }
 }
 struct ErrorList {
-    init_onces : HashMap<ErrorCategory, Once>,
+    init_onces : HashMap<ErrorCategory, AtomicBool>,
     errors : HashMap<(ErrorCategory, ErrorCode), ErrorDesc>
 }
 
-static mut GLOBAL_ERROR_LIST : OnceLock<ErrorList> = OnceLock::new();
+static GLOBAL_ERROR_LIST : OnceLock<RwLock<ErrorList>> = OnceLock::new();
 
-unsafe fn common_error_push(g : &mut ErrorList) {
-    let o = g.init_onces.entry(COMMON_ERROR_CATEGORY).or_insert(Once::new());
-    let mut errs = common_err::get_common_error_list();
-    o.call_once(|| {
-        while let Some(err_data) = errs.pop() {
-            g.errors.insert((COMMON_ERROR_CATEGORY, err_data.0), err_data.1);
+unsafe fn common_error_push(mut g : RwLockWriteGuard<'_, ErrorList>) {
+    {
+        let is_once = g.init_onces.entry(COMMON_ERROR_CATEGORY).or_insert(AtomicBool::new(false));
+
+        if is_once.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return;
         }
-    });
+    }
+
+    let mut errs = common_err::_gen_err_list();
+    while let Some(err_data) = errs.pop() {
+        g.errors.insert((COMMON_ERROR_CATEGORY, err_data.0), ErrorDesc::new(err_data.1.0, err_data.1.1));
+    }
 }
 
 pub fn push_error_list(category_id :ErrorCategory, mut errs : Vec<(ErrorCode, ErrorDesc)>) {
     unsafe {
         let _ = GLOBAL_ERROR_LIST.get_or_init(|| {
-            ErrorList { init_onces: HashMap::new(), errors: HashMap::new() }
+            RwLock::new(ErrorList { init_onces: HashMap::new(), errors: HashMap::new() })
         });
     
-        let g = GLOBAL_ERROR_LIST.get_mut().unwrap();
-        common_error_push(g);
+        {
+            let g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
+            common_error_push(g);
+        }
     
-        let o = g.init_onces.entry(category_id).or_insert(Once::new());
-        o.call_once(|| {
+        {
+            let mut g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
+
+            let is_once = g.init_onces.entry(category_id).or_insert(AtomicBool::new(false));
+    
+            if is_once.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
+
             while let Some(err_data) = errs.pop() {
                 g.errors.insert((category_id, err_data.0), err_data.1);
             }
+        }
+    }
+    
+}
+
+pub fn push_error_list_str_tup(category_id :ErrorCategory, mut errs : Vec<(&'static str, (&'static str, &'static str))>) {
+    unsafe {
+        let _ = GLOBAL_ERROR_LIST.get_or_init(|| {
+            RwLock::new(ErrorList { init_onces: HashMap::new(), errors: HashMap::new() })
         });
+    
+        {
+            let g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
+            common_error_push(g);
+        }
+    
+        {
+            let mut g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
+
+            let is_once = g.init_onces.entry(category_id).or_insert(AtomicBool::new(false));
+    
+            if is_once.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
+
+            while let Some(err_data) = errs.pop() {
+                g.errors.insert((COMMON_ERROR_CATEGORY, err_data.0), ErrorDesc::new(err_data.1.0, err_data.1.1));
+            }
+        }
     }
     
 }
@@ -115,22 +159,19 @@ fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
 
 #[track_caller]
 pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String) -> CommonImplError {
-    let mut ret_err : Option<&ErrorDesc> = None;
-    unsafe {
-        let g = GLOBAL_ERROR_LIST.get().unwrap();
-        let e = match g.errors.get(&(category_id, code)) {
-            Some(s) => s,
-            None => g.errors.get(&(COMMON_ERROR_CATEGORY, "UnknownError")).unwrap()
-        };
-        ret_err = Some(e);
-    }
     let loc = Location::caller();
 
     let mut bt = Backtrace::new_unresolved();
     bt.resolve();
 
     let func = decode_bt_frames(bt.frames());
-    // 보통 첫 번째 프레임은 현재 함수 (log_caller), 두 번째가 상위 호출자
-    println!("## {}", func);
-    CommonImplError::new(func, loc.file(), category_id, ret_err.unwrap(), msg)
+
+    CommonImplError::new(func, loc.file(), category_id, {
+        let g = GLOBAL_ERROR_LIST.get().unwrap().read().unwrap();
+        let e = match g.errors.get(&(category_id, code)) {
+            Some(s) => s,
+            None => g.errors.get(&(COMMON_ERROR_CATEGORY, UNKNOWN_ERROR)).unwrap()
+        };
+        e.clone()
+    }, msg)
 }

@@ -8,7 +8,7 @@ use crate::types as res_type;
 use common_core::err::{create_error};
 use common_conn::CommonValue;
 use common_conn::CommonSqlExecuteResultSet;
-use common_conn::COMMON_CONN_ERROR_CATEGORY;
+use common_conn::err::*;
 
 pub(super) struct ScyllaFetcher<'a> {
     fetch : &'a QueryRowsResult,
@@ -117,7 +117,7 @@ impl<'a> ScyllaFetcher<'a> {
             ColumnType::Double => Self::cast_cql_val_to_comm_double_value(cql_value),
             
             _ => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 format!("copy_reponse_data - can't cast data type:{:?}", t)).as_error()
          };
         Ok(d)
@@ -127,7 +127,7 @@ impl<'a> ScyllaFetcher<'a> {
         match query_ret.rows::<T>(){
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 err.to_string()).as_error()
         }
     }
@@ -137,7 +137,7 @@ impl<'a> ScyllaFetcher<'a> {
         let val = match Self::cast_data(self.cols_desc[0], &row.0) {
             Ok(ok) => ok,
             Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 e.to_string()).as_error()
         };
         data.push(val);
@@ -156,7 +156,7 @@ impl<'a> ScyllaFetcher<'a> {
             let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
                 Ok(ok) => ok,
                 Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    "ResponseScanError", 
+                    RESPONSE_SCAN_ERROR, 
                     e.to_string()).as_error()
             };
             data.push(val);
@@ -177,7 +177,7 @@ impl<'a> ScyllaFetcher<'a> {
             let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
                 Ok(ok) => ok,
                 Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    "ResponseScanError", 
+                    RESPONSE_SCAN_ERROR, 
                     e.to_string()).as_error()
             };
             data.push(val);
@@ -199,7 +199,7 @@ impl<'a> ScyllaFetcher<'a> {
             let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
                 Ok(ok) => ok,
                 Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    "ResponseScanError", 
+                    RESPONSE_SCAN_ERROR, 
                     e.to_string()).as_error()
             };
             data.push(val);
@@ -220,7 +220,7 @@ impl<'a> ScyllaFetcher<'a> {
                 let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response1>(&self.fetch) {
                     Ok(ok) => Ok(ok),
                     Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        "CommandRunError", 
+                        COMMAND_RUN_ERROR, 
                         e.to_string()).as_error()
                 }?;
 
@@ -229,7 +229,7 @@ impl<'a> ScyllaFetcher<'a> {
                     let row_opt = match row_scan_ret {
                         Ok(ok) => Ok(ok),
                         Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             err.to_string()).as_error()
                     }?;
         
@@ -239,7 +239,7 @@ impl<'a> ScyllaFetcher<'a> {
                     };
                     let data = self.copy_response1(row).map_err(|e| {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             e.to_string()).as_error::<()>().err().unwrap()
                     })?;
                     
@@ -250,7 +250,7 @@ impl<'a> ScyllaFetcher<'a> {
                 let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response2>(&self.fetch) {
                     Ok(ok) => Ok(ok),
                     Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        "CommandRunError", 
+                        COMMAND_RUN_ERROR, 
                         e.to_string()).as_error()
                 }?;
 
@@ -261,7 +261,7 @@ impl<'a> ScyllaFetcher<'a> {
                     let row_opt = match row_scan_ret {
                         Ok(ok) => Ok(ok),
                         Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "CommandRunError", 
+                            COMMAND_RUN_ERROR, 
                             err.to_string()).as_error()
                     }?;
         
@@ -271,7 +271,7 @@ impl<'a> ScyllaFetcher<'a> {
                     };
                     let data = self.copy_response2(row).map_err(|e| {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "CommandRunError", 
+                            COMMAND_RUN_ERROR, 
                             e.to_string()).as_error::<()>().err().unwrap()
                     })?;
                     
@@ -282,7 +282,7 @@ impl<'a> ScyllaFetcher<'a> {
                 let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response3>(&self.fetch) {
                     Ok(ok) => Ok(ok),
                     Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        "CommandRunError", 
+                        COMMAND_RUN_ERROR, 
                         e.to_string()).as_error()
                 }?;
 
@@ -291,7 +291,7 @@ impl<'a> ScyllaFetcher<'a> {
                     let row_opt = match row_scan_ret {
                         Ok(ok) => Ok(ok),
                         Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             err.to_string()).as_error()
                     }?;
 
@@ -301,7 +301,7 @@ impl<'a> ScyllaFetcher<'a> {
                     };
                     let data = self.copy_response3(row).map_err(|e| {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             e.to_string()).as_error::<()>().err().unwrap()
                     })?;
                     
@@ -312,7 +312,7 @@ impl<'a> ScyllaFetcher<'a> {
                 let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response4>(&self.fetch) {
                     Ok(ok) => Ok(ok),
                     Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        "CommandRunError", 
+                        COMMAND_RUN_ERROR, 
                         e.to_string()).as_error()
                 }?;
 
@@ -321,7 +321,7 @@ impl<'a> ScyllaFetcher<'a> {
                     let row_opt = match row_scan_ret {
                         Ok(ok) => Ok(ok),
                         Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "CommandRunError", 
+                            COMMAND_RUN_ERROR, 
                             err.to_string()).as_error()
                     }?;
         
@@ -331,7 +331,7 @@ impl<'a> ScyllaFetcher<'a> {
                     };
                     let data = self.copy_response4(row).map_err(|e| {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             e.to_string()).as_error::<()>().err().unwrap()
                     })?;
 

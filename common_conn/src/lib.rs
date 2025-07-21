@@ -5,8 +5,6 @@ use std::sync::Arc;
 
 use common_core::collection::pool::ThreadSafePool;
 
-pub use err::COMMON_CONN_ERROR_CATEGORY;
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum CommonValue {
     Double(f64),

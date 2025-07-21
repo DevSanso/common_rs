@@ -1,4 +1,4 @@
-use std::sync::{Once, Arc, Mutex, LazyLock};
+use std::sync::{Once, Mutex, LazyLock};
 use std::collections::HashMap;
 
 
@@ -41,15 +41,9 @@ pub fn init_once() {
 }
 
 pub(crate) fn is_set_signal(signal : i32) -> bool {
-    let mut ret = false;
-
-    {
-        let map = SIGNAL_MAP.lock().unwrap();
-        ret = match map.get(&signal) {
-            Some(s) => *s,
-            None => false
-        }
+    let map = SIGNAL_MAP.lock().unwrap();
+    match map.get(&signal) {
+        Some(s) => *s,
+        None => false
     }
-
-    ret
 }

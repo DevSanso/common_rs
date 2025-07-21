@@ -3,7 +3,6 @@ pub mod utils;
 pub mod db;
 
 pub use common_core::err::{ErrorCode, ErrorCategory, ErrorDesc, COMMON_ERROR_CATEGORY};
-pub use common_conn::COMMON_CONN_ERROR_CATEGORY;
 
 pub mod logger {
     pub use log::debug;
@@ -30,5 +29,5 @@ pub mod signal {
 }
 
 pub mod err {
-    pub use common_core::err::{COMMON_ERROR_CATEGORY, create_error, ErrorCategory, ErrorCode};
+    pub use common_core::err::*;
 }

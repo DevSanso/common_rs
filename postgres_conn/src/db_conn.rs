@@ -4,8 +4,9 @@ use common_conn::CommonSqlExecuteResultSet;
 use postgres::types::ToSql;
 use postgres::types::Type;
 
-use common_core::err::{create_error, COMMON_ERROR_CATEGORY};
-use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue, COMMON_CONN_ERROR_CATEGORY};
+use common_core::err::*;
+use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue};
+use common_conn::err::*;
 
 pub struct PostgresConnection {
     client : postgres::Client   
@@ -34,7 +35,7 @@ impl PostgresConnection {
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "GetConnectionFailedError", 
+                GET_CONNECTION_FAILED_ERROR, 
                 err.to_string()).as_error()
         }?;
 
@@ -56,7 +57,7 @@ impl CommonSqlConnection for PostgresConnection {
                 CommonValue::String(t) => Ok(t),
                 _ => {
                     create_error(COMMON_ERROR_CATEGORY, 
-                        "CriticalError", 
+                        CRITICAL_ERROR, 
                         format!("not support type({:?}), return null", x)).as_error()
                 }
             };
@@ -66,7 +67,7 @@ impl CommonSqlConnection for PostgresConnection {
         let rows = match self.client.query(query, pg_param.as_slice()) {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "CommandRunError", 
+                COMMAND_RUN_ERROR, 
                 err.to_string()).as_error()
         }?;
 
@@ -97,7 +98,7 @@ impl CommonSqlConnection for PostgresConnection {
                     &Type::BYTEA => Ok(get_pg_data!(row, col_idx, Vec<u8>, CommonValue, Binrary)),
                     _ => {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            "ResponseScanError", 
+                            RESPONSE_SCAN_ERROR, 
                             format!("not support this type({}), return NULL", cols_t[col_idx])).as_error()
                     }
                 }?;
@@ -115,7 +116,7 @@ impl CommonSqlConnection for PostgresConnection {
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 "not exists now return data".to_string()).as_error();
         }
 

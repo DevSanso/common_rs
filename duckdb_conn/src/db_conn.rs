@@ -4,8 +4,9 @@ use duckdb;
 use duckdb::types::ToSql;
 use duckdb::arrow::datatypes::DataType;
 
-use common_core::err::{create_error, COMMON_ERROR_CATEGORY};
-use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue, COMMON_CONN_ERROR_CATEGORY};
+use common_core::err::*;
+use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonValue};
+use common_conn::err::*;
 
 pub struct DuckDBConnection {
     client : duckdb::Connection
@@ -27,7 +28,7 @@ impl CommonSqlConnection for DuckDBConnection {
     fn execute(&mut self, query : &'_ str, param : &'_ [CommonValue]) -> Result<common_conn::CommonSqlExecuteResultSet, Box<dyn std::error::Error>> {
         let mut prepare = self.client.prepare(query).map_err(|x| {
             create_error(COMMON_ERROR_CATEGORY, 
-                "ConnectionApiCallError", 
+                CONNECTION_API_CALL_ERROR, 
                 x.to_string()).as_error::<()>().err().unwrap()
         })?;
 
@@ -40,7 +41,7 @@ impl CommonSqlConnection for DuckDBConnection {
                 CommonValue::Binrary(v) => Ok(v),
                 CommonValue::String(t) => Ok(t),
                 _ => create_error(COMMON_ERROR_CATEGORY, 
-                        "CriticalError", 
+                        CRITICAL_ERROR, 
                         format!("not support type({:?}), return null", x)).as_error()
                 
             };
@@ -57,7 +58,7 @@ impl CommonSqlConnection for DuckDBConnection {
 
         let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
             create_error(COMMON_ERROR_CATEGORY, 
-                "CommandRunError", 
+                COMMAND_RUN_ERROR, 
                 x.to_string()).as_error::<()>().err().unwrap()
         })?;
 
@@ -65,7 +66,7 @@ impl CommonSqlConnection for DuckDBConnection {
             let row = rows.next();
             if row.is_err() {
                 return create_error(COMMON_ERROR_CATEGORY, 
-                    "ConnectionApiCallError", 
+                    CONNECTION_API_CALL_ERROR, 
                     row.err().unwrap().to_string()).as_error();
             }
 
@@ -102,7 +103,7 @@ impl CommonSqlConnection for DuckDBConnection {
                         Ok(CommonValue::Binrary(conv))
                     },
                     _ => create_error(COMMON_ERROR_CATEGORY, 
-                        "NoSupportError", 
+                        NO_SUPPORT_ERROR, 
                         "not exists col type data".to_string()).as_error()
                 };
 
@@ -120,7 +121,7 @@ impl CommonSqlConnection for DuckDBConnection {
             "SELECT CAST(extract(epoch FROM current_timestamp) AS INTEGER) AS unix_time", [], |r| r.get(0))
             .map_err(|x| {
                 create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    "ResponseScanError", 
+                    RESPONSE_SCAN_ERROR, 
                     x.to_string()).as_error::<()>().err().unwrap()
             })?;
         

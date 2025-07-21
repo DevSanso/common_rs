@@ -7,7 +7,8 @@ use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 
 use common_core::err::{create_error};
-use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo, COMMON_CONN_ERROR_CATEGORY};
+use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo};
+use common_conn::err::*;
 use scylla::SessionBuilder;
 use crate::db_conn::utils::ScyllaFetcher;
 pub struct ScyllaCommonSqlConnection {
@@ -19,7 +20,7 @@ impl ScyllaCommonSqlConnection {
     pub(crate) fn new(infos : Vec<CommonSqlConnectionInfo>) -> Result<Self, Box<dyn Error>> {
         if infos.len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "GetConnectionFailedError", 
+                GET_CONNECTION_FAILED_ERROR, 
                 "scylla connection info array size of zero".to_string()).as_error();
         }
      
@@ -43,7 +44,7 @@ impl ScyllaCommonSqlConnection {
         match block {
             Ok(ok) => Ok(ScyllaCommonSqlConnection{session : ok, rt : rt}),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "GetConnectionFailedError", 
+                GET_CONNECTION_FAILED_ERROR, 
                 err.to_string()).as_error()
         }
     }
@@ -57,7 +58,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         let prepare = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ConnectionApiCallError", 
+                CONNECTION_API_CALL_ERROR, 
                 err.to_string()).as_error()
         }?;
 
@@ -88,7 +89,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         let query_result = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "CommandRunError", 
+                COMMAND_RUN_ERROR, 
                 err.to_string()).as_error()
         }?;
 
@@ -99,7 +100,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         let rows = match query_result.into_rows_result() {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 err.to_string()).as_error()
         }?;
 
@@ -107,7 +108,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
 
         fetcher.fetch(&mut result).map_err(|e| {
             create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 e.to_string()).as_error::<()>().err().unwrap()
         })?;
 
@@ -119,7 +120,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                "ResponseScanError", 
+                RESPONSE_SCAN_ERROR, 
                 "not exists now return data".to_string()).as_error();
         }
 

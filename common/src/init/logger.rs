@@ -5,7 +5,7 @@ use std::process::Command;
 use ftail::Ftail;
 use log::LevelFilter;
 
-use common_core::err::{COMMON_ERROR_CATEGORY, create_error};
+use common_core::err::*;
 
 fn convert_str_to_log_level(log_level : &'_ str) -> LevelFilter {
     match log_level {
@@ -44,7 +44,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             
             if output_opt.is_none() {
                 ret = create_error(COMMON_ERROR_CATEGORY, 
-                    "ApiCallError", 
+                    API_CALL_ERROR, 
                     "sh failed".to_string()).as_error();
                 return;
             }
@@ -52,7 +52,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             let output = output_opt.unwrap();
             if !output.status.success() {
                 ret = create_error(COMMON_ERROR_CATEGORY, 
-                    "ApiCallError", 
+                    API_CALL_ERROR, 
                     "sh failed".to_string()).as_error();
                 return;
             }
@@ -63,7 +63,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             
                 if chk_write.is_err() {
                     ret = create_error(COMMON_ERROR_CATEGORY, 
-                        "ApiCallError", 
+                        API_CALL_ERROR, 
                         chk_write.unwrap_err().to_string()).as_error();
                     return;
                 }
@@ -80,7 +80,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             ret = match ftail.init() {
                 Ok(_) => Ok(()),
                 Err(e) => create_error(COMMON_ERROR_CATEGORY, 
-                    "ApiCallError", 
+                    API_CALL_ERROR, 
                     e.to_string()).as_error()
             }
         }
