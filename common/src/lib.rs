@@ -28,6 +28,6 @@ pub mod signal {
     }
 }
 
-pub mod err {
-    pub use common_core::err::*;
+pub mod core {
+    pub use common_core::err;
 }
