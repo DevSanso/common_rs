@@ -1,2 +1,2 @@
-pub use common_core::func;
+pub use common_core::utils::*;
 
