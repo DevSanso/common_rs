@@ -15,4 +15,4 @@ scylla_conn = {path = "../scylla_conn"}
 postgres_conn = {path = "../postgres_conn"}
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib"]
