@@ -31,4 +31,5 @@ pub mod signal {
 pub mod err {
     pub use common_core::err as core;
     pub use common_conn::err as db;
+    pub use common_core::err::create_error;
 }
