@@ -1,2 +1,3 @@
 [workspace]
-members = ["common_conn", "common_core", "postgres_conn", "scylla_conn", "duckdb_conn", "common"]
+members = ["common_conn", "common_core", "postgres_conn", "scylla_conn", "duckdb_conn", "common_rs"]
+resolver = "2"

@@ -1,5 +1,5 @@
 [package]
-name = "common"
+name = "common_rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,4 +15,4 @@ scylla_conn = {path = "../scylla_conn"}
 postgres_conn = {path = "../postgres_conn"}
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["dylib"]
