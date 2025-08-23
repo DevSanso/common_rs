@@ -25,7 +25,11 @@ pub struct CommonImplError {
     file : &'static str,
     category : ErrorCategory,
     desc : ErrorDesc,
-    message : String
+    message : String,
+
+    cause_func : String,
+    cause_file : &'static str,
+    cause_message : String
 }
 
 impl ErrorDesc {
@@ -35,20 +39,23 @@ impl ErrorDesc {
 }
 
 impl CommonImplError {
-    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : ErrorDesc, message : String) -> Self {
-        CommonImplError {func: func, file : file, category : category, desc : desc, message : message}
+    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : ErrorDesc,
+     message : String, cause_func : String, cause_file : &'static str, cause_message : String) -> Self {
+        CommonImplError {func: func, file : file, category : category, desc : desc, message : message, cause_func, cause_file, cause_message }
     }
 
     pub fn as_error<T>(self) -> Result<T, Box<dyn Error>>{
         Err(Box::new(self))
     }
+
 }
 
 impl std::fmt::Display for CommonImplError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[category:{}][func:{}][file:{}][desc:{}] - {}\n",
-            self.category, self.func.as_str(), self.file, self.desc.0, self.message)?;
-        
+        let stack_desc= format!("[category:{}][func:{}][file:{}][cause:{}:{}]"
+            , self.category, self.func, self.file, self.cause_file, self.cause_func);
+
+        let _ = write!(f, "{} - [desc:{},msg:{}] [cause:{}]\n", stack_desc, self.desc.0, self.message, self.cause_message);
         std::fmt::Result::Ok(())
     }
 }
@@ -59,7 +66,7 @@ impl Error for CommonImplError  {
     }
 
     fn description(&self) -> &str {
-        stringify!(CommonError)
+        ""
     }
 
     fn cause(&self) -> Option<&dyn Error> {
@@ -158,20 +165,44 @@ fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
 }
 
 #[track_caller]
-pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String) -> CommonImplError {
+pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String, source : Option<Box<dyn Error>>) -> CommonImplError {
     let loc = Location::caller();
 
     let mut bt = Backtrace::new_unresolved();
     bt.resolve();
 
-    let func = decode_bt_frames(bt.frames());
 
-    CommonImplError::new(func, loc.file(), category_id, {
+    let func = decode_bt_frames(bt.frames());
+    let file = loc.file();
+
+    let mut cause_fn = String::from("");
+    let mut cause_file : &'static str = "";
+    let mut cause_message = String::from("");
+
+    if source.is_none() {
+        cause_fn.insert_str(0, func.as_str());
+        cause_file = file;
+        cause_message.insert_str(0, msg.as_str());
+
+    } else {
+        let src = source.unwrap();
+
+        let temp_msg = format!("[msg:{}, src:{}]", msg, src.to_string());
+        let (fn_ref, file_ref, msg_ref) = match src.downcast_ref::<CommonImplError>() {
+            Some(e) => (e.cause_func.as_str(), e.cause_file, e.cause_message.as_str()),
+            None => (func.as_str(), file, temp_msg.as_str())
+        };
+        cause_fn.insert_str(0, fn_ref);
+        cause_file = file_ref;
+        cause_message.insert_str(0, msg_ref);
+    }
+
+    CommonImplError::new(func, file, category_id, {
         let g = GLOBAL_ERROR_LIST.get().unwrap().read().unwrap();
         let e = match g.errors.get(&(category_id, code)) {
             Some(s) => s,
             None => g.errors.get(&(COMMON_ERROR_CATEGORY, UNKNOWN_ERROR)).unwrap()
         };
         e.clone()
-    }, msg)
+    }, msg, cause_fn, cause_file, cause_message)
 }

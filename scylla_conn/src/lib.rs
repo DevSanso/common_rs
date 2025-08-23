@@ -1,5 +1,4 @@
 mod db_conn;
-pub(crate) mod types;
 
 use std::error::Error;
 

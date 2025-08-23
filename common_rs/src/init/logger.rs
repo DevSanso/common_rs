@@ -45,7 +45,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             if output_opt.is_none() {
                 ret = create_error(COMMON_ERROR_CATEGORY, 
                     API_CALL_ERROR, 
-                    "sh failed".to_string()).as_error();
+                    "sh failed".to_string(), None).as_error();
                 return;
             }
 
@@ -53,7 +53,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             if !output.status.success() {
                 ret = create_error(COMMON_ERROR_CATEGORY, 
                     API_CALL_ERROR, 
-                    "sh failed".to_string()).as_error();
+                    "sh failed".to_string(), None).as_error();
                 return;
             }
 
@@ -64,7 +64,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
                 if chk_write.is_err() {
                     ret = create_error(COMMON_ERROR_CATEGORY, 
                         API_CALL_ERROR, 
-                        chk_write.unwrap_err().to_string()).as_error();
+                        "".to_string(), Some(Box::new(chk_write.unwrap_err()))).as_error();
                     return;
                 }
             }
@@ -81,7 +81,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
                 Ok(_) => Ok(()),
                 Err(e) => create_error(COMMON_ERROR_CATEGORY, 
                     API_CALL_ERROR, 
-                    e.to_string()).as_error()
+                    "".to_string(), Some(Box::new(e))).as_error()
             }
         }
     });

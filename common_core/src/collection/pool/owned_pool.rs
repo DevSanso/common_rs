@@ -104,14 +104,14 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
                     let err_msg = gen_item.err().unwrap();
                     return create_error(COMMON_ERROR_CATEGORY, 
                         "GenResultIsNoneError", 
-                        format!("pool_name:{}\n{}", self.pool_name, err_msg)).as_error();
+                        format!("pool_name:{}\n{}", self.pool_name, err_msg), None).as_error();
                 }
                 g.items.push_back(gen_item.unwrap());
                 g.alloc_size += 1;
                 } else {
                     return create_error(COMMON_ERROR_CATEGORY, 
                         MAX_SIZED_ERROR, 
-                        format!("pool_name:{}", self.pool_name)).as_error();
+                        format!("pool_name:{}", self.pool_name), None).as_error();
                 }
             }
         }   
