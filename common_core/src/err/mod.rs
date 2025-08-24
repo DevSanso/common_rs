@@ -24,6 +24,7 @@ pub struct CommonImplError {
     func : String,
     file : &'static str,
     category : ErrorCategory,
+    err_code : ErrorCode,
     desc : ErrorDesc,
     message : String,
 
@@ -39,21 +40,53 @@ impl ErrorDesc {
 }
 
 impl CommonImplError {
-    pub fn new(func : String, file : &'static str, category : ErrorCategory, desc : ErrorDesc,
+    pub fn new(func : String, err_code : ErrorCode, file : &'static str, category : ErrorCategory, desc : ErrorDesc,
      message : String, cause_func : String, cause_file : &'static str, cause_message : String) -> Self {
-        CommonImplError {func: func, file : file, category : category, desc : desc, message : message, cause_func, cause_file, cause_message }
+        CommonImplError {func: func, err_code,  file : file, category : category, desc : desc, message : message, cause_func, cause_file, cause_message }
     }
 
     pub fn as_error<T>(self) -> Result<T, Box<dyn Error>>{
         Err(Box::new(self))
     }
 
+    pub fn func_name(&self) -> &'_ str {
+        self.func.as_str()
+    }
+
+    pub fn file_name(&self) -> &'_ str {
+        self.file
+    }
+
+    pub fn category_id(&self) -> &'_ ErrorCategory {
+        &self.category
+    }
+
+    pub fn err_desc(&self) -> &'_ ErrorDesc {
+        &self.desc
+    }
+
+    pub fn msg(&self) -> &'_ str {
+        self.message.as_str()
+    }
+
+    pub fn cause_func_name(&self) -> &'_ str {
+        self.cause_func.as_str()
+    }
+
+    pub fn cause_file_name(&self) -> &'_ str {
+        self.cause_file
+    }
+
+    pub fn cause_msg(&self) -> &'_ str {
+        self.cause_message.as_str()
+    }
+
 }
 
 impl std::fmt::Display for CommonImplError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let stack_desc= format!("[category:{}][func:{}][file:{}][cause:{}:{}]"
-            , self.category, self.func, self.file, self.cause_file, self.cause_func);
+        let stack_desc= format!("[category:{}][err:{}][file:{}][cause:{}:{}]"
+            , self.category, self.err_code, self.file, self.cause_file, self.cause_func);
 
         let _ = write!(f, "{} - [desc:{},msg:{}] [cause:{}]\n", stack_desc, self.desc.0, self.message, self.cause_message);
         std::fmt::Result::Ok(())
@@ -79,6 +112,24 @@ struct ErrorList {
 }
 
 static GLOBAL_ERROR_LIST : OnceLock<RwLock<ErrorList>> = OnceLock::new();
+static GLOBAL_COMMON_ERR_LIST_INIT : AtomicBool = AtomicBool::new(false);
+
+unsafe fn call_once_common_init() {
+    if GLOBAL_COMMON_ERR_LIST_INIT.load(std::sync::atomic::Ordering::SeqCst) == true {
+        return;
+    }
+
+    let _ = GLOBAL_ERROR_LIST.get_or_init(|| {
+        RwLock::new(ErrorList { init_onces: HashMap::new(), errors: HashMap::new() })
+    });
+
+    {
+        let g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
+        common_error_push(g);
+    }
+
+    GLOBAL_COMMON_ERR_LIST_INIT.store(true, std::sync::atomic::Ordering::SeqCst);
+}
 
 unsafe fn common_error_push(mut g : RwLockWriteGuard<'_, ErrorList>) {
     {
@@ -97,14 +148,7 @@ unsafe fn common_error_push(mut g : RwLockWriteGuard<'_, ErrorList>) {
 
 pub fn push_error_list(category_id :ErrorCategory, mut errs : Vec<(ErrorCode, ErrorDesc)>) {
     unsafe {
-        let _ = GLOBAL_ERROR_LIST.get_or_init(|| {
-            RwLock::new(ErrorList { init_onces: HashMap::new(), errors: HashMap::new() })
-        });
-    
-        {
-            let g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
-            common_error_push(g);
-        }
+        call_once_common_init();
     
         {
             let mut g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
@@ -125,14 +169,7 @@ pub fn push_error_list(category_id :ErrorCategory, mut errs : Vec<(ErrorCode, Er
 
 pub fn push_error_list_str_tup(category_id :ErrorCategory, mut errs : Vec<(&'static str, (&'static str, &'static str))>) {
     unsafe {
-        let _ = GLOBAL_ERROR_LIST.get_or_init(|| {
-            RwLock::new(ErrorList { init_onces: HashMap::new(), errors: HashMap::new() })
-        });
-    
-        {
-            let g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
-            common_error_push(g);
-        }
+        call_once_common_init();
     
         {
             let mut g = GLOBAL_ERROR_LIST.get().unwrap().write().unwrap();
@@ -155,8 +192,16 @@ fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
     if let Some(frame) = frames.get(1) {
         for symbol in frame.symbols() {
             if let Some(name) = symbol.name() {
-                let de = demangle(name.as_str().unwrap());
-                return format!("{}", de);
+                let de = demangle(name.as_str().unwrap()).to_string();
+                
+                
+                let parts: Vec<&str> = de.as_str().split("::").collect();
+
+                if parts.len() >= 2 && parts.last().unwrap().starts_with('h') {
+                    return parts.get(parts.len() - 2).unwrap().to_string();
+                }
+            
+                return parts.last().unwrap().to_string();
             }
         }
     }
@@ -166,6 +211,10 @@ fn decode_bt_frames(frames : &[BacktraceFrame]) -> String {
 
 #[track_caller]
 pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String, source : Option<Box<dyn Error>>) -> CommonImplError {
+    unsafe {
+        call_once_common_init();
+    }
+    
     let loc = Location::caller();
 
     let mut bt = Backtrace::new_unresolved();
@@ -197,7 +246,7 @@ pub fn create_error(category_id :ErrorCategory, code : ErrorCode, msg : String, 
         cause_message.insert_str(0, msg_ref);
     }
 
-    CommonImplError::new(func, file, category_id, {
+    CommonImplError::new(func, code, file, category_id, {
         let g = GLOBAL_ERROR_LIST.get().unwrap().read().unwrap();
         let e = match g.errors.get(&(category_id, code)) {
             Some(s) => s,
