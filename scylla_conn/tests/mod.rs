@@ -7,6 +7,10 @@ mod scylla_tests {
     use std::error::Error;
     use scylla_conn::create_scylla_conn_pool;
 
+    use std::sync::Mutex;
+
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
     fn init_testing_db_delete(c : &mut Box<dyn CommonSqlConnection>) -> Result<(), Box<dyn Error>> {
         c.execute("DROP TABLE IF EXISTS test_db.users", &[])?;
         c.execute("DROP KEYSPACE IF EXISTS test_db", &[])?;
@@ -34,9 +38,12 @@ mod scylla_tests {
     }
 
     fn init_testing_db(mut conn : CommonSqlConnectionBox) -> Result<(), Box<dyn Error>> {
+        let lock = TEST_MUTEX.lock()?;
         let real_conn: &mut Box<dyn CommonSqlConnection> = conn.get_value();
         init_testing_db_delete(real_conn)?;
         init_testing_db_create(real_conn)?;
+
+        drop(lock);
         Ok(())
     }
 
