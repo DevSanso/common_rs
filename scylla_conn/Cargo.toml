@@ -8,3 +8,8 @@ common_core = {path = "../common_core"}
 common_conn = {path = "../common_conn"}
 tokio = {version = "1.43.0"}
 scylla = "0.15.1"
+
+
+[[test]]
+name = "test_scylla_conn"
+path = "tests/mod.rs"
