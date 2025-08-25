@@ -10,7 +10,7 @@ use common_core::err::{create_error};
 use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo};
 use common_conn::err::*;
 use scylla::SessionBuilder;
-use crate::db_conn::utils::ScyllaFetcher;
+use crate::db_conn::utils::ScyllaFetcherRow;
 pub struct ScyllaCommonSqlConnection {
     session : Session,
     rt : Runtime
@@ -21,7 +21,7 @@ impl ScyllaCommonSqlConnection {
         if infos.len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
                 GET_CONNECTION_FAILED_ERROR, 
-                "scylla connection info array size of zero".to_string()).as_error();
+                "scylla connection info array size of zero".to_string(), None).as_error();
         }
      
         let mut builder = SessionBuilder::new();
@@ -45,7 +45,7 @@ impl ScyllaCommonSqlConnection {
             Ok(ok) => Ok(ScyllaCommonSqlConnection{session : ok, rt : rt}),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 GET_CONNECTION_FAILED_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }
     }
 }
@@ -59,7 +59,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 CONNECTION_API_CALL_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }?;
 
         let mut result = CommonSqlExecuteResultSet::default();
@@ -90,7 +90,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 COMMAND_RUN_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }?;
 
         if typ.len() <= 0 {
@@ -101,16 +101,40 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 RESPONSE_SCAN_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }?;
 
-        let mut fetcher = ScyllaFetcher::new(&rows, &typ);
-
-        fetcher.fetch(&mut result).map_err(|e| {
-            create_error(COMMON_CONN_ERROR_CATEGORY, 
+        let mut row_iter = match rows.rows::<ScyllaFetcherRow>() {
+            Ok(ok) => Ok(ok),
+            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 RESPONSE_SCAN_ERROR, 
-                e.to_string()).as_error::<()>().err().unwrap()
-        })?;
+                "".to_string(), Some(Box::new(err))).as_error()
+        }?;
+
+        while let Some(r) = row_iter.next() {
+            let mut convert_row = match r {
+                Ok(ok) => Ok(ok),
+                Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    RESPONSE_SCAN_ERROR, 
+                    "".to_string(), Some(Box::new(err))).as_error()
+            }?;
+
+            let chk_err = convert_row.get_error();
+            if chk_err.is_err() {
+                return create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    RESPONSE_SCAN_ERROR, 
+                    "".to_string(), Some(chk_err.err().unwrap())).as_error();
+            }
+            let col_data = convert_row.clone_col();
+
+            if col_data.len() != result.cols_name.len() {
+                return create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    RESPONSE_SCAN_ERROR, 
+                    format!("data len : {} != col count : {}", col_data.len(), result.cols_name.len()), None).as_error();
+            } 
+
+            result.cols_data.push(col_data);
+        }
 
         Ok(result)
     }
@@ -121,7 +145,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
                 RESPONSE_SCAN_ERROR, 
-                "not exists now return data".to_string()).as_error();
+                "".to_string(), None).as_error();
         }
 
         let data = match ret.cols_data[0][0] {

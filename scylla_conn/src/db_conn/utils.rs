@@ -1,26 +1,29 @@
 use std::error::Error;
 
+use scylla::deserialize::{DeserializeRow, DeserializeValue};
 use scylla::frame::response::result::{ColumnType,CqlValue};
-use scylla::deserialize::result::TypedRowIterator;
-use scylla::QueryRowsResult;
 
-use crate::types as res_type;
-use common_core::err::{create_error};
+use common_core::err::{create_error, COMMON_ERROR_CATEGORY, CRITICAL_ERROR};
 use common_conn::CommonValue;
-use common_conn::CommonSqlExecuteResultSet;
 use common_conn::err::*;
 
-pub(super) struct ScyllaFetcher<'a> {
-    fetch : &'a QueryRowsResult,
-    cols_desc : &'a Vec<&'a ColumnType<'a>>
+pub(super) struct ScyllaFetcherRow {
+    col : Vec<CommonValue>,
+    catch_err : Option<Result<(), Box<dyn Error>>>
 }
 
-impl<'a> ScyllaFetcher<'a> {
-    pub fn new(fetch : &'a QueryRowsResult, cols_desc : &'a Vec<&'a ColumnType<'a>>) -> Self {
-        ScyllaFetcher {
-            fetch,
-            cols_desc
+impl ScyllaFetcherRow {
+    pub fn get_error(&mut self) -> Result<(), Box<dyn Error>> {
+        let t = self.catch_err.take();
+        match t {
+            Some(s) => s,
+            None => create_error(COMMON_ERROR_CATEGORY, CRITICAL_ERROR
+                , "catch_err is NULL".to_string(), None).as_error()
         }
+    }
+
+    pub fn clone_col(&self) -> Vec<CommonValue> {
+        self.col.clone()
     }
 
     #[inline]
@@ -118,228 +121,47 @@ impl<'a> ScyllaFetcher<'a> {
             
             _ => return create_error(COMMON_CONN_ERROR_CATEGORY, 
                 RESPONSE_SCAN_ERROR, 
-                format!("copy_reponse_data - can't cast data type:{:?}", t)).as_error()
+                format!("copy_reponse_data - can't cast data type:{:?}", t), None).as_error()
          };
         Ok(d)
     }
+}
 
-    fn fetch_iter<T : scylla::deserialize::DeserializeRow<'a,'a>> (query_ret : &'a QueryRowsResult) -> Result<TypedRowIterator<'a, 'a, T>, Box<dyn Error>> {
-        match query_ret.rows::<T>(){
-            Ok(ok) => Ok(ok),
-            Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                RESPONSE_SCAN_ERROR, 
-                err.to_string()).as_error()
-        }
-    }
-
-    fn copy_response1(&self, row : res_type::Response1) -> Result<Vec<CommonValue>, Box<dyn Error>> {
-        let mut data = Vec::with_capacity(1);
-        let val = match Self::cast_data(self.cols_desc[0], &row.0) {
-            Ok(ok) => ok,
-            Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                RESPONSE_SCAN_ERROR, 
-                e.to_string()).as_error()
-        };
-        data.push(val);
-
-        Ok(data)
-    }
-
-    fn copy_response2(&self, row : res_type::Response2) -> Result<Vec<CommonValue>, Box<dyn Error>> {
-        let mut data = Vec::with_capacity(2);
-        for idx in 0..2 {
-            let cal_val = match idx {
-                0 => &row.0,
-                _ => &row.1
-            };
-
-            let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
-                Ok(ok) => ok,
-                Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    RESPONSE_SCAN_ERROR, 
-                    e.to_string()).as_error()
-            };
-            data.push(val);
-        }
-
-        Ok(data)
-    }
-
-    fn copy_response3(&self, row : res_type::Response3) -> Result<Vec<CommonValue>, Box<dyn Error>> {
-        let mut data = Vec::with_capacity(3);
-        for idx in 0..3 {
-            let cal_val = match idx {
-                0 => &row.0,
-                1 => &row.1,
-                _ => &row.2
-            };
-
-            let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
-                Ok(ok) => ok,
-                Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    RESPONSE_SCAN_ERROR, 
-                    e.to_string()).as_error()
-            };
-            data.push(val);
-        }
-
-        Ok(data)
-    }
-
-    fn copy_response4(&self, row : res_type::Response4) -> Result<Vec<CommonValue>, Box<dyn Error>> {
-        let mut data = Vec::with_capacity(3);
-        for idx in 0..4 {
-            let cal_val = match idx {
-                0 => &row.0,
-                1 => &row.1,
-                2 => &row.2,
-                _ => &row.3
-            };
-
-            let val = match Self::cast_data(self.cols_desc[idx], cal_val) {
-                Ok(ok) => ok,
-                Err(e) => return create_error(COMMON_CONN_ERROR_CATEGORY, 
-                    RESPONSE_SCAN_ERROR, 
-                    e.to_string()).as_error()
-            };
-            data.push(val);
-        }
-
-        Ok(data)
-    }
-
-    pub fn fetch(&mut self, output : &mut CommonSqlExecuteResultSet) -> Result<(), Box<dyn Error>> {
-        let col_len = self.cols_desc.len();
-
-        if col_len <= 0 || self.fetch.rows_num() <= 0 {
-            return Ok(());
-        }
-
-        match col_len {
-            1 => {
-                let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response1>(&self.fetch) {
-                    Ok(ok) => Ok(ok),
-                    Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        COMMAND_RUN_ERROR, 
-                        e.to_string()).as_error()
-                }?;
-
-                #[allow(irrefutable_let_patterns)]
-                while let row_scan_ret = fetch_data_iter.next().transpose() {
-                    let row_opt = match row_scan_ret {
-                        Ok(ok) => Ok(ok),
-                        Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            RESPONSE_SCAN_ERROR, 
-                            err.to_string()).as_error()
-                    }?;
-        
-                    let row = match row_opt {
-                        Some(s) => s,
-                        None => break
-                    };
-                    let data = self.copy_response1(row).map_err(|e| {
-                        create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            RESPONSE_SCAN_ERROR, 
-                            e.to_string()).as_error::<()>().err().unwrap()
-                    })?;
-                    
-                    output.cols_data.push(data);
-                }
-            },
-            2 => {
-                let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response2>(&self.fetch) {
-                    Ok(ok) => Ok(ok),
-                    Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        COMMAND_RUN_ERROR, 
-                        e.to_string()).as_error()
-                }?;
-
-
-
-                #[allow(irrefutable_let_patterns)]
-                while let row_scan_ret = fetch_data_iter.next().transpose() {
-                    let row_opt = match row_scan_ret {
-                        Ok(ok) => Ok(ok),
-                        Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            COMMAND_RUN_ERROR, 
-                            err.to_string()).as_error()
-                    }?;
-        
-                    let row = match row_opt {
-                        Some(s) => s,
-                        None => break
-                    };
-                    let data = self.copy_response2(row).map_err(|e| {
-                        create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            COMMAND_RUN_ERROR, 
-                            e.to_string()).as_error::<()>().err().unwrap()
-                    })?;
-                    
-                    output.cols_data.push(data);
-                }
-            },
-            3 => {
-                let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response3>(&self.fetch) {
-                    Ok(ok) => Ok(ok),
-                    Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        COMMAND_RUN_ERROR, 
-                        e.to_string()).as_error()
-                }?;
-
-                #[allow(irrefutable_let_patterns)]
-                while let row_scan_ret = fetch_data_iter.next().transpose() {
-                    let row_opt = match row_scan_ret {
-                        Ok(ok) => Ok(ok),
-                        Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            RESPONSE_SCAN_ERROR, 
-                            err.to_string()).as_error()
-                    }?;
-
-                    let row = match row_opt {
-                        Some(s) => s,
-                        None => break
-                    };
-                    let data = self.copy_response3(row).map_err(|e| {
-                        create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            RESPONSE_SCAN_ERROR, 
-                            e.to_string()).as_error::<()>().err().unwrap()
-                    })?;
-                    
-                    output.cols_data.push(data);
-                }
-            },
-            _ => {
-                let mut fetch_data_iter = match Self::fetch_iter::<res_type::Response4>(&self.fetch) {
-                    Ok(ok) => Ok(ok),
-                    Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                        COMMAND_RUN_ERROR, 
-                        e.to_string()).as_error()
-                }?;
-
-                #[allow(irrefutable_let_patterns)]
-                while let row_scan_ret = fetch_data_iter.next().transpose() {
-                    let row_opt = match row_scan_ret {
-                        Ok(ok) => Ok(ok),
-                        Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            COMMAND_RUN_ERROR, 
-                            err.to_string()).as_error()
-                    }?;
-        
-                    let row = match row_opt {
-                        Some(s) => s,
-                        None => break
-                    };
-                    let data = self.copy_response4(row).map_err(|e| {
-                        create_error(COMMON_CONN_ERROR_CATEGORY, 
-                            RESPONSE_SCAN_ERROR, 
-                            e.to_string()).as_error::<()>().err().unwrap()
-                    })?;
-
-                    output.cols_data.push(data);
-                }
-            }
-        }
-
+impl DeserializeRow<'_,'_> for ScyllaFetcherRow {
+    fn type_check(_: &[scylla::frame::response::result::ColumnSpec]) -> Result<(), scylla::deserialize::TypeCheckError> {
         Ok(())
+    }
+
+    fn deserialize(row: scylla::deserialize::row::ColumnIterator<'_, '_>) -> Result<Self, scylla::deserialize::DeserializationError> {
+        let mut iter = row.into_iter();
+        let mut datas = Vec::with_capacity(10);
+        let mut catch_err : Result<(), Box<dyn Error>> = Ok(());
+
+        while let Some(rc) = iter.next() {
+            let raw_c = rc?;
+            let cql_value = <Option<CqlValue>>::deserialize(raw_c.spec.typ(), raw_c.slice)?;
+            
+            if cql_value.is_none() { 
+                catch_err = create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    RESPONSE_SCAN_ERROR, 
+                    format!("ScyllaFetcherNew - deserialize CqlValue is None"), None).as_error();
+                break;
+            }
+
+            let val = Self::cast_data(raw_c.spec.typ(), &cql_value.unwrap());
+
+            if val.is_err() {
+                catch_err = create_error(COMMON_CONN_ERROR_CATEGORY, 
+                    RESPONSE_SCAN_ERROR, 
+                    format!("ScyllaFetcherNew - cast_data error"), Some(val.err().unwrap())).as_error();
+                break;
+            }
+
+            datas.push(val.unwrap());
+        }
+
+        Ok(ScyllaFetcherRow {
+            col : datas, catch_err : Some(catch_err)
+        })
     }
 }

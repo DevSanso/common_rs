@@ -4,6 +4,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use common_core::collection::pool::ThreadSafePool;
+use common_core::collection::pool::PoolItem;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CommonValue {
@@ -37,5 +38,6 @@ pub struct CommonSqlConnectionInfo {
     pub timeout_sec : u32
 }
 
+pub type CommonSqlConnectionBox = Box<dyn PoolItem<Box<dyn CommonSqlConnection>>>;
 pub type CommonSqlConnectionPool = Arc<dyn ThreadSafePool<Box<dyn CommonSqlConnection>,()>>;
 

@@ -104,14 +104,14 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
                     let err_msg = gen_item.err().unwrap();
                     return create_error(COMMON_ERROR_CATEGORY, 
                         "GenResultIsNoneError", 
-                        format!("pool_name:{}\n{}", self.pool_name, err_msg)).as_error();
+                        format!("pool_name:{}\n{}", self.pool_name, err_msg), None).as_error();
                 }
                 g.items.push_back(gen_item.unwrap());
                 g.alloc_size += 1;
                 } else {
                     return create_error(COMMON_ERROR_CATEGORY, 
                         MAX_SIZED_ERROR, 
-                        format!("pool_name:{}", self.pool_name)).as_error();
+                        format!("pool_name:{}", self.pool_name), None).as_error();
                 }
             }
         }   
@@ -203,32 +203,3 @@ impl <T,P> ThreadSafePool<T,P> for OwnedPool<T,P> where T : 'static, P: 'static 
     }
 }
 
-#[cfg(test)]
-mod pool_tests {
-    use std::error::Error;
-    #[test]
-    pub fn test_pool_arc() -> Result<(), Box<dyn Error>> {
-        use std::sync::Arc;
-        use super::*;
-
-        let p : Arc<InternalOwnedPool<(),()>> = InternalOwnedPool::new(String::from("test"),Box::new(|_x : ()| {
-            return Ok(())
-        }),5);
-
-        {
-
-            let _: Result<Box<dyn PoolItem<()>>, Box<dyn Error>> = p.get_owned(());
-        }
-        
-        assert_eq!(1, p.alloc_size());
-
-        {
-            let mut a = p.get_owned(())?;
-            a.dispose();
-        }
-
-        assert_eq!(0, p.alloc_size());
-
-        Ok(()) 
-    }
-}

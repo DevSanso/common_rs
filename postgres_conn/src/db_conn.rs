@@ -36,7 +36,7 @@ impl PostgresConnection {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 GET_CONNECTION_FAILED_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }?;
 
         Ok(PostgresConnection {
@@ -58,7 +58,7 @@ impl CommonSqlConnection for PostgresConnection {
                 _ => {
                     create_error(COMMON_ERROR_CATEGORY, 
                         CRITICAL_ERROR, 
-                        format!("not support type({:?}), return null", x)).as_error()
+                        format!("not support type({:?}), return null", x), None).as_error()
                 }
             };
             convert
@@ -68,7 +68,7 @@ impl CommonSqlConnection for PostgresConnection {
             Ok(ok) => Ok(ok),
             Err(err) => create_error(COMMON_CONN_ERROR_CATEGORY, 
                 COMMAND_RUN_ERROR, 
-                err.to_string()).as_error()
+                "".to_string(), Some(Box::new(err))).as_error()
         }?;
 
 
@@ -99,7 +99,7 @@ impl CommonSqlConnection for PostgresConnection {
                     _ => {
                         create_error(COMMON_CONN_ERROR_CATEGORY, 
                             RESPONSE_SCAN_ERROR, 
-                            format!("not support this type({}), return NULL", cols_t[col_idx])).as_error()
+                            format!("not support this type({}), return NULL", cols_t[col_idx]), None).as_error()
                     }
                 }?;
 
@@ -117,7 +117,7 @@ impl CommonSqlConnection for PostgresConnection {
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return create_error(COMMON_CONN_ERROR_CATEGORY, 
                 RESPONSE_SCAN_ERROR, 
-                "not exists now return data".to_string()).as_error();
+                "not exists now return data".to_string(), None).as_error();
         }
 
 

@@ -9,3 +9,7 @@ log = "0.4.22"
 libc = "0.2.174"
 backtrace = "0.3.75"
 rustc-demangle = "0.1.25"
+
+[[test]]
+name = "test_core"
+path = "tests/mod.rs"

@@ -29,7 +29,7 @@ impl CommonSqlConnection for DuckDBConnection {
         let mut prepare = self.client.prepare(query).map_err(|x| {
             create_error(COMMON_ERROR_CATEGORY, 
                 CONNECTION_API_CALL_ERROR, 
-                x.to_string()).as_error::<()>().err().unwrap()
+                "".to_string(), Some(Box::new(x))).as_error::<()>().err().unwrap()
         })?;
 
         let duck_param  = param.iter().map(| x | {
@@ -42,7 +42,7 @@ impl CommonSqlConnection for DuckDBConnection {
                 CommonValue::String(t) => Ok(t),
                 _ => create_error(COMMON_ERROR_CATEGORY, 
                         CRITICAL_ERROR, 
-                        format!("not support type({:?}), return null", x)).as_error()
+                        format!("not support type({:?}), return null", x), None).as_error()
                 
             };
             convert
@@ -59,7 +59,7 @@ impl CommonSqlConnection for DuckDBConnection {
         let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
             create_error(COMMON_ERROR_CATEGORY, 
                 COMMAND_RUN_ERROR, 
-                x.to_string()).as_error::<()>().err().unwrap()
+                "".to_string(), Some(Box::new(x))).as_error::<()>().err().unwrap()
         })?;
 
         loop  {
@@ -67,7 +67,7 @@ impl CommonSqlConnection for DuckDBConnection {
             if row.is_err() {
                 return create_error(COMMON_ERROR_CATEGORY, 
                     CONNECTION_API_CALL_ERROR, 
-                    row.err().unwrap().to_string()).as_error();
+                    "".to_string(), Some(Box::new(row.err().unwrap()))).as_error();
             }
 
             let r = row.unwrap();
@@ -104,7 +104,7 @@ impl CommonSqlConnection for DuckDBConnection {
                     },
                     _ => create_error(COMMON_ERROR_CATEGORY, 
                         NO_SUPPORT_ERROR, 
-                        "not exists col type data".to_string()).as_error()
+                        "not exists col type data".to_string(), None).as_error()
                 };
 
                 common_row.push(data?);
@@ -122,7 +122,7 @@ impl CommonSqlConnection for DuckDBConnection {
             .map_err(|x| {
                 create_error(COMMON_CONN_ERROR_CATEGORY, 
                     RESPONSE_SCAN_ERROR, 
-                    x.to_string()).as_error::<()>().err().unwrap()
+                    "".to_string(), Some(Box::new(x))).as_error::<()>().err().unwrap()
             })?;
         
         Ok(std::time::Duration::from_secs(data as u64))
