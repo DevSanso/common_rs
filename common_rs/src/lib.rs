@@ -1,8 +1,8 @@
+pub use common_core as core;
+
 pub mod init;
 pub mod utils;
 pub mod db;
-
-pub use common_core::err::{ErrorCode, ErrorCategory, ErrorDesc, COMMON_ERROR_CATEGORY};
 
 pub mod logger {
     pub use log::debug;

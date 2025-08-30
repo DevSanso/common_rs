@@ -7,10 +7,7 @@ use std::error::Error;
 use common_conn::err::COMMON_CONN_ERROR_CATEGORY;
 use common_core::err::API_CALL_ERROR;
 
-use crate::ErrorCategory;
-use crate::ErrorCode;
-use crate::ErrorDesc;
-use crate::COMMON_ERROR_CATEGORY;
+use crate::err::core::*;
 
 pub struct LoggerConfig<'a> {
     pub log_level : &'a str,
