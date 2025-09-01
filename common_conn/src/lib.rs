@@ -24,9 +24,13 @@ pub struct CommonSqlExecuteResultSet {
     pub cols_data : Vec<Vec<CommonValue>>
 }
 pub trait CommonSqlConnection {
-    //fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>>;
     fn execute(&mut self, query : &'_ str, param : &'_ [CommonValue]) -> Result<CommonSqlExecuteResultSet, Box<dyn Error>>;
     fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>>;
+    fn trans(&mut self) -> Result<&mut dyn CommonSqlTxConnection, Box<dyn Error>>;
+}
+
+pub trait CommonSqlTxConnection {
+    fn execute_tx(&mut self, query : &'_ str, params : &'_[&'_ [CommonValue]]) -> Result<(), Box<dyn Error>>;
 }
 
 #[derive(Debug,Clone)]

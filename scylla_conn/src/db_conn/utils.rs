@@ -6,6 +6,10 @@ use scylla::frame::response::result::{ColumnType,CqlValue};
 use common_core::err::{create_error, COMMON_ERROR_CATEGORY, CRITICAL_ERROR};
 use common_conn::CommonValue;
 use common_conn::err::*;
+use scylla::serialize::batch::{BatchValues, BatchValuesIteratorFromIterator};
+use scylla::serialize::row::{SerializeRow, SerializedValues};
+use scylla::serialize::value::SerializeValue;
+use scylla::serialize::SerializationError;
 
 pub(super) struct ScyllaFetcherRow {
     col : Vec<CommonValue>,
@@ -164,4 +168,100 @@ impl DeserializeRow<'_,'_> for ScyllaFetcherRow {
             col : datas, catch_err : Some(catch_err)
         })
     }
+}
+
+pub(crate) struct ScyllaBatchParam {
+    val : Vec<CommonValue>
+}
+
+impl ScyllaBatchParam {
+    fn new(s : Vec<CommonValue>) -> Self {
+        ScyllaBatchParam { val : s }
+    }
+
+    fn append_batch_value(&self, batch : &mut SerializedValues)-> Result<(), SerializationError> {
+        for data in self.val.iter() {
+            let _ = match data {
+                CommonValue::Int(i) => batch.add_value(&i, &ColumnType::Int),
+                CommonValue::Binrary(i) =>batch.add_value(&i, &ColumnType::Blob),
+                CommonValue::Double(i) => batch.add_value(&i, &ColumnType::Double),
+                CommonValue::String(i) => batch.add_value(&i, &ColumnType::Text),
+                CommonValue::Bool(i) =>batch.add_value(&i, &ColumnType::Boolean),
+                CommonValue::BigInt(i) => batch.add_value(&i, &ColumnType::BigInt),
+                CommonValue::Float(i) => batch.add_value(&i, &ColumnType::Float),
+                CommonValue::Null => batch.add_value(&Option::<i64>::None, &ColumnType::BigInt)
+            }?;
+        }
+
+        Ok(())
+    }
+    
+}
+
+impl SerializeRow for ScyllaBatchParam {
+    fn serialize(
+        &self,
+        _ctx: &scylla::serialize::row::RowSerializationContext<'_>,
+        writer: &mut scylla::serialize::writers::RowWriter,
+    ) -> Result<(), scylla::serialize::SerializationError> {
+        let mut val = SerializedValues::new();
+        
+        self.append_batch_value(&mut val)?;
+
+        writer.append_serialize_row(&val);
+        
+        Ok(())
+    }
+
+    fn is_empty(&self) -> bool {
+       self.val.len() <= 0
+    }
+}
+
+pub struct ScyllaBatchParams<'a> {
+    params : Vec<Box<dyn SerializeRow>>,
+    _marker : std::marker::PhantomData<&'a ()>
+}
+
+impl<'a> ScyllaBatchParams<'a> {
+    pub fn new(s : Vec<Vec<CommonValue>>) -> Self {
+        let ps : Vec<Box<dyn SerializeRow>> = s.iter().fold(Vec::new(), |mut acc, x| {
+            acc.push(Box::new(ScyllaBatchParam::new(x.clone())));
+            acc
+        });
+
+        ScyllaBatchParams {
+            params : ps,
+            _marker : std::marker::PhantomData
+        }
+    }
+
+    pub fn as_batch_value_iter<'b>(&'b self) -> RealScyllaBatchParam<'b> where 'b : 'a {
+        let p : Vec<&'b dyn SerializeRow> = self.params.iter().fold(Vec::new(), |mut acc, x| {
+            acc.push(x.as_ref());
+            acc
+        });
+        RealScyllaBatchParam {
+            param : p
+        }
+    } 
+}
+
+pub struct RealScyllaBatchParam<'a> {
+    pub(self) param : Vec<&'a dyn SerializeRow>
+}
+
+
+
+impl<'a> BatchValues for RealScyllaBatchParam<'a> {
+    type BatchValuesIter<'r> = BatchValuesIteratorFromIterator<std::slice::Iter<'r,&'a dyn SerializeRow>>
+    where
+        Self: 'r;
+        
+    fn batch_values_iter(&self) -> Self::BatchValuesIter<'_> {
+        let ret = BatchValuesIteratorFromIterator::from(self.param.iter());
+        ret
+    }
+
+
 }

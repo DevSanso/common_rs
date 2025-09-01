@@ -2,18 +2,36 @@ mod utils;
 
 use std::error::Error;
 
+use scylla::batch::Batch;
 use scylla::Session;
 use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 
 use common_core::err::{create_error};
-use common_conn::{CommonSqlConnection, CommonValue, CommonSqlExecuteResultSet, CommonSqlConnectionInfo};
+use common_conn::{CommonSqlConnection, CommonSqlConnectionInfo, CommonSqlExecuteResultSet, CommonSqlTxConnection, CommonValue};
 use common_conn::err::*;
 use scylla::SessionBuilder;
-use crate::db_conn::utils::ScyllaFetcherRow;
+use crate::db_conn::utils::{ScyllaBatchParams, ScyllaFetcherRow};
 pub struct ScyllaCommonSqlConnection {
     session : Session,
     rt : Runtime
+}
+
+fn convert_common_value_to_scylla_param(param : &'_ [CommonValue]) -> Vec<Option<&dyn SerializeValue>> {
+    param.iter().fold(Vec::<Option<&dyn SerializeValue>>::new(), |mut acc,x | {
+        let p : Option<&dyn SerializeValue> = match x {
+            CommonValue::Int(i) => Some(i),
+            CommonValue::Binrary(bs) => Some(bs),
+            CommonValue::Double(f) => Some(f),
+            CommonValue::String(s) => Some(s),
+            CommonValue::Bool(b) => Some(b),
+            CommonValue::Null => None,
+            CommonValue::BigInt(bi) => Some(bi),
+            CommonValue::Float(f) => Some(f),
+        };
+        acc.push(p);
+        acc
+    })
 }
 
 impl ScyllaCommonSqlConnection {
@@ -70,20 +88,7 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
             typ.push(col.typ());
         }
 
-        let real_param = param.iter().fold(Vec::<Option<&dyn SerializeValue>>::new(), |mut acc,x | {
-            let p : Option<&dyn SerializeValue> = match x {
-                CommonValue::Int(i) => Some(i),
-                CommonValue::Binrary(bs) => Some(bs),
-                CommonValue::Double(f) => Some(f),
-                CommonValue::String(s) => Some(s),
-                CommonValue::Bool(b) => Some(b),
-                CommonValue::Null => None,
-                CommonValue::BigInt(bi) => Some(bi),
-                CommonValue::Float(f) => Some(f),
-            };
-            acc.push(p);
-            acc
-        });
+        let real_param = convert_common_value_to_scylla_param(param);
 
         let feature = self.session.execute_unpaged(&prepare, real_param);
         let query_result = match self.rt.block_on(feature) {
@@ -155,5 +160,36 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         };
 
         Ok(std::time::Duration::from_secs(data as u64))
+    }
+    
+    fn trans(&mut self) -> Result<&mut dyn CommonSqlTxConnection, Box<(dyn std::error::Error + 'static)>> {
+        Ok(self)
+    }
+}
+
+impl CommonSqlTxConnection for ScyllaCommonSqlConnection {
+    fn execute_tx(&mut self, query : &'_ str, params : &'_[&'_ [CommonValue]]) -> Result<(), Box<dyn Error>> {
+        let mut batch = Batch::new(scylla::batch::BatchType::Logged);
+        let mut param_size = 0;
+        for i in 0..params.len() {
+            batch.append_statement(query);
+            param_size = params[i].len();
+        }
+
+        let mut real_batch_vec = Vec::with_capacity(params.len());
+        for v in params {
+            let mut copyd = Vec::with_capacity(param_size);
+            copyd.extend_from_slice(v);
+            real_batch_vec.push(copyd);
+        }
+        
+        let param_wrap = ScyllaBatchParams::new(real_batch_vec);
+
+        let future = self.session.batch(&batch, param_wrap.as_batch_value_iter());
+        let _ = self.rt.block_on(future).map_err(|x| {
+            create_error(COMMON_CONN_ERROR_CATEGORY, TRANSACTION_CALL_ERROR,
+                 "batch thread run failed".to_string(), Some(Box::new(x))).as_error::<()>().err().unwrap()
+        })?;
+        Ok(())
     }
 }

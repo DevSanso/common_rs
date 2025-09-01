@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use common_conn::CommonSqlExecuteResultSet;
+use common_conn::CommonSqlTxConnection;
 use postgres::types::ToSql;
 use postgres::types::Type;
 
@@ -22,6 +23,25 @@ macro_rules! get_pg_data {
             }
         }
     };
+}
+
+fn convert_common_value_to_pg_param(param : &'_ [CommonValue]) -> Result<Vec<&(dyn ToSql + Sync)>, Box<dyn Error>> {
+    param.iter().map(| x | {
+        let convert: Result<&(dyn ToSql + Sync), Box<dyn Error>> = match x {
+            CommonValue::BigInt(i) => Ok(i),
+            CommonValue::Int(i) => Ok(i),
+            CommonValue::Null => Ok(&Option::<i64>::None),
+            CommonValue::Double(f) => Ok(f),
+            CommonValue::Binrary(v) => Ok(v),
+            CommonValue::String(t) => Ok(t),
+            _ => {
+                create_error(COMMON_ERROR_CATEGORY, 
+                    CRITICAL_ERROR, 
+                    format!("not support type({:?}), return null", x), None).as_error()
+            }
+        };
+        convert
+    }).collect::<Result<Vec<&(dyn ToSql + Sync)>, Box<dyn Error>>>()
 }
 
 impl PostgresConnection {
@@ -47,22 +67,7 @@ impl PostgresConnection {
 
 impl CommonSqlConnection for PostgresConnection {
     fn execute(&mut self, query : &'_ str, param : &'_ [CommonValue]) -> Result<common_conn::CommonSqlExecuteResultSet, Box<dyn std::error::Error>> {
-        let pg_param  = param.iter().map(| x | {
-            let convert: Result<&(dyn ToSql + Sync), Box<dyn Error>> = match x {
-                CommonValue::BigInt(i) => Ok(i),
-                CommonValue::Int(i) => Ok(i),
-                CommonValue::Null => Ok(&Option::<i64>::None),
-                CommonValue::Double(f) => Ok(f),
-                CommonValue::Binrary(v) => Ok(v),
-                CommonValue::String(t) => Ok(t),
-                _ => {
-                    create_error(COMMON_ERROR_CATEGORY, 
-                        CRITICAL_ERROR, 
-                        format!("not support type({:?}), return null", x), None).as_error()
-                }
-            };
-            convert
-        }).collect::<Result<Vec<&(dyn ToSql + Sync)>, Box<dyn Error>>>()?;
+        let pg_param  = convert_common_value_to_pg_param(param)?;
 
         let rows = match self.client.query(query, pg_param.as_slice()) {
             Ok(ok) => Ok(ok),
@@ -129,5 +134,41 @@ impl CommonSqlConnection for PostgresConnection {
         };
 
         Ok(std::time::Duration::from_secs(data as u64))
+    }
+    
+    fn trans(&mut self) -> Result<&mut dyn CommonSqlTxConnection, Box<(dyn std::error::Error + 'static)>> {
+        Ok(self)
+    }
+}
+
+impl CommonSqlTxConnection for PostgresConnection {
+    fn execute_tx(&mut self, query : &'_ str, params : &'_[&'_ [CommonValue]]) -> Result<(), Box<dyn Error>> {
+        let mut tx = match self.client.transaction() {
+            Ok(ok) => Ok(ok),
+            Err(e) => create_error(COMMON_CONN_ERROR_CATEGORY, TRANSACTION_CALL_ERROR
+                , "failed tx call".to_string(), Some(Box::new(e))).as_error()
+        }?;
+
+        let mut ret = Ok(0);
+
+        for param in params {
+            let p = convert_common_value_to_pg_param(param)?;
+            let exec_ret = tx.execute(query, p.as_slice());
+
+            ret = exec_ret;
+            if ret.is_err() {break}
+        }
+
+        if ret.is_err() {
+            let _ = tx.rollback();
+
+            return create_error(COMMON_CONN_ERROR_CATEGORY, TRANSACTION_CALL_ERROR,
+                "execute failed".to_string(), Some(Box::new(ret.unwrap_err()))).as_error();
+        }
+        else {
+            let _ = tx.commit();
+        }
+
+        Ok(())
     }
 }

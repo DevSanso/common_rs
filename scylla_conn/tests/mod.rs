@@ -172,4 +172,80 @@ mod scylla_tests {
         Ok(())
     }
 
+    #[test]
+    fn tests_tran_insert_and_select_query_scylla_db() -> Result<(), Box<dyn Error>> {
+        tests_init_query_scylla_db()?;
+        let conn = create_scylla_conn_pool("Testing".to_string(), vec![CommonSqlConnectionInfo {
+            addr : "localhost:9042".to_string(),
+            db_name : "test_db".to_string(),
+            user : "cassandra".to_string(),
+            password : "cassandra".to_string(),
+            timeout_sec : 10
+        }], 10);
+
+        let mut real_conn = conn.get_owned(())?;
+        {
+            let executor = real_conn.get_value();
+
+            let tx = executor.trans()?;
+
+            let params: &[&[CommonValue]] = &[&[CommonValue::String("testing".to_string()), 
+            CommonValue::String("testing@testing.com".to_string()),
+            CommonValue::Int(123)],
+            &[CommonValue::String("testing2".to_string()), 
+                    CommonValue::String("testing2@testing.com".to_string()),
+                    CommonValue::Int(124)]
+            ];
+
+            tx.execute_tx("INSERT INTO users (k, id, username, email, age, created_at, is_active) 
+                    VALUES (1, uuid(), ?, ?, ?, toTimestamp(now()), true)", params)?;
+
+            let ret = executor.execute(
+                " SELECT age, email, username FROM users where k = 1 ", &[])?;
+                
+            {
+                let first = &ret.cols_data[0];
+                let name = match  &first[2] {
+                    CommonValue::String(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+                let email = match  &first[1] {
+                    CommonValue::String(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+                let age = match  &first[0] {
+                    CommonValue::Int(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+
+                assert_eq!("testing", name.as_str());
+                assert_eq!("testing@testing.com", email.as_str());
+                assert_eq!(123, *age);
+
+            }
+            {
+                let first = &ret.cols_data[1];
+                let name = match  &first[2] {
+                    CommonValue::String(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+                let email = match  &first[1] {
+                    CommonValue::String(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+                let age = match  &first[0] {
+                    CommonValue::Int(s) => s,
+                    _ => panic!("convert first 0 failed")
+                };
+
+                assert_eq!("testing2", name.as_str());
+                assert_eq!("testing2@testing.com", email.as_str());
+                assert_eq!(124, *age);
+
+            }
+        }
+
+        Ok(())
+    }
+
 } 
