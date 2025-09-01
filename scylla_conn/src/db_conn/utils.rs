@@ -209,7 +209,8 @@ impl SerializeRow for ScyllaBatchParam {
         self.append_batch_value(&mut val)?;
 
         writer.append_serialize_row(&val);
-        todo!()
+        
+        Ok(())
     }
 
     fn is_empty(&self) -> bool {
@@ -258,7 +259,8 @@ impl<'a> BatchValues for RealScyllaBatchParam<'a> {
         Self: 'r;
         
     fn batch_values_iter(&self) -> Self::BatchValuesIter<'_> {
-        BatchValuesIteratorFromIterator::from(self.param.iter())
+        let ret = BatchValuesIteratorFromIterator::from(self.param.iter());
+        ret
     }
 
 

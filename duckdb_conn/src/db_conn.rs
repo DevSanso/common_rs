@@ -132,8 +132,8 @@ impl CommonSqlConnection for DuckDBConnection {
         Ok(std::time::Duration::from_secs(data as u64))
     }
     
-    fn trans(self) -> Result<Box<dyn common_conn::CommonSqlTxConnection>, Box<dyn Error>> {
-        Ok(Box::new(self))
+    fn trans(&mut self) -> Result<&mut dyn CommonSqlTxConnection, Box<(dyn std::error::Error + 'static)>> {
+        Ok(self)
     }
 }
 

@@ -162,8 +162,8 @@ impl CommonSqlConnection for ScyllaCommonSqlConnection {
         Ok(std::time::Duration::from_secs(data as u64))
     }
     
-    fn trans(self) -> Result<Box<dyn common_conn::CommonSqlTxConnection>, Box<dyn Error>> {
-        Ok(Box::new(self))
+    fn trans(&mut self) -> Result<&mut dyn CommonSqlTxConnection, Box<(dyn std::error::Error + 'static)>> {
+        Ok(self)
     }
 }
 
@@ -188,7 +188,7 @@ impl CommonSqlTxConnection for ScyllaCommonSqlConnection {
         let future = self.session.batch(&batch, param_wrap.as_batch_value_iter());
         let _ = self.rt.block_on(future).map_err(|x| {
             create_error(COMMON_CONN_ERROR_CATEGORY, TRANSACTION_CALL_ERROR,
-                 "batch thread run failed".to_string(), None).as_error::<()>().err().unwrap()
+                 "batch thread run failed".to_string(), Some(Box::new(x))).as_error::<()>().err().unwrap()
         })?;
         Ok(())
     }
