@@ -28,7 +28,7 @@ pub trait RelationalExecutor<PARAM> {
     fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>>;
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Default)]
 pub struct RelationalExecutorInfo {
     pub addr : String,
     pub name : String,

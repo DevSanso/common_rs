@@ -11,22 +11,20 @@ pub struct DuckDBConnection {
     client : duckdb::Connection
 }
 
-fn convert_common_value_to_duckdb_param(param : &'_ [RelationalValue]) -> Result<Vec<&(dyn ToSql)>, Box<dyn Error>> {
+fn convert_common_value_to_duckdb_param(param : &'_ [RelationalValue]) -> Result<Vec<&dyn ToSql>, Box<dyn Error>> {
     param.iter().map(| x | {
-        let convert: Result<&(dyn ToSql), Box<dyn Error>> = match x {
+        let convert: Result<&dyn ToSql, Box<dyn Error>> = match x {
             RelationalValue::BigInt(i) => Ok(i),
             RelationalValue::Int(i) => Ok(i),
             RelationalValue::Null => Ok(&Option::<i64>::None),
             RelationalValue::Double(f) => Ok(f),
             RelationalValue::Bin(v) => Ok(v),
             RelationalValue::String(t) => Ok(t),
-            _ => create_error(COMMON_ERROR_CATEGORY,
-                              CRITICAL_ERROR,
-                              format!("not support type({:?}), return null", x), None).as_error()
+            _ => SimpleError {msg : format!("not support type({:?}), return null", x)}.into_result()
 
         };
         convert
-    }).collect::<Result<Vec<&(dyn ToSql)>, Box<dyn Error>>>()
+    }).collect::<Result<Vec<&dyn ToSql>, Box<dyn Error>>>()
 }
 
 impl DuckDBConnection {
@@ -42,9 +40,9 @@ impl DuckDBConnection {
 }
 
 impl RelationalExecutor<RelationalValue> for DuckDBConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, Box<dyn std::error::Error>> {
+    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, Box<dyn Error>> {
         let mut prepare = self.client.prepare(query).map_err(|x| {
-            SimpleError {msg : format!("DuckDBConnection - execute - {}", x.to_string())}.into_result()
+            SimpleError {msg : format!("DuckDBConnection - execute - {}", x.to_string())}.into_result::<()>().unwrap_err()
         })?;
 
         let duck_param  = convert_common_value_to_duckdb_param(param)?;
@@ -58,13 +56,14 @@ impl RelationalExecutor<RelationalValue> for DuckDBConnection {
         ret.cols_data = Vec::with_capacity(10);
 
         let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
-            SimpleError {msg : format!("DuckDBConnection - execute,query - {}", x.to_string())}.into_result()
+            SimpleError {msg : format!("DuckDBConnection - execute,query - {}", x.to_string())}.into_result::<()>().unwrap_err()
         })?;
 
         loop  {
             let row = rows.next();
             if row.is_err() {
-                return SimpleError {msg : format!("DuckDBConnection - execute,next - {}", row.unwrap_err())}.into_result();
+                let e = row.err().unwrap();
+                return SimpleError {msg : format!("DuckDBConnection - execute,next - {}", e.to_string())}.into_result();
             }
 
             let r = row.unwrap();
@@ -116,7 +115,7 @@ impl RelationalExecutor<RelationalValue> for DuckDBConnection {
         let data : i64 = self.client.query_row(
             "SELECT CAST(extract(epoch FROM current_timestamp) AS INTEGER) AS unix_time", [], |r| r.get(0))
             .map_err(|x| {
-                SimpleError {msg : format!("DuckDBConnection - get_current_time - {}", x.to_string())}.into_result()
+                SimpleError {msg : format!("DuckDBConnection - get_current_time - {}", x.to_string())}.into_result::<()>().unwrap_err()
             })?;
 
         Ok(std::time::Duration::from_secs(data as u64))
