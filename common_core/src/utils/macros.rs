@@ -14,24 +14,3 @@ macro_rules! func {
 
 pub use func;
 
-#[macro_export]
-macro_rules! gen_err_msg_list {
-    (
-        $(($ident:ident, $desc:expr, $detail:expr)),* $(,)?
-    ) => {
-        $(
-            pub const $ident: &str = stringify!($ident);
-        )*
-
-        pub(crate) fn _gen_err_list() -> Vec<(&'static str, (&'static str, &'static str))> {
-            vec![
-                $(
-                    (stringify!($ident), ($desc, $detail)),
-                )*
-            ]
-        }
-    };
-}
-
-pub use gen_err_msg_list;
-

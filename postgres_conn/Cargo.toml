@@ -1,9 +1,0 @@
-[package]
-name = "postgres_conn"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-common_core = {path = "../common_core"}
-common_conn = {path = "../common_conn"}
-postgres = "0.19.9"
