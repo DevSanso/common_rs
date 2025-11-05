@@ -10,3 +10,12 @@ pub mod exec {
     pub use common_exec_shell as c_exec_shell;
     pub use common_exec_pg as c_exec_pg;
 }
+
+pub mod logger {
+    use log;
+
+    pub use log::debug as log_debug;
+    pub use log::info as log_info;
+    pub use log::warn as log_warn;
+    pub use log::error as log_error;
+}

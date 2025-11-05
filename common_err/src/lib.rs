@@ -21,7 +21,7 @@ pub trait CommonErrorKind {
 impl CommonError {
     #[track_caller]
     pub fn new(kind :&'_ dyn CommonErrorKind, cause : String) -> CommonError {
-        let func = utils::get_source_func_name(1);
+        let func = utils::get_source_func_name(2);
         let (file, line) = utils::get_source_file_and_line();
 
         CommonError {
