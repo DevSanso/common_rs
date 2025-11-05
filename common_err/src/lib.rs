@@ -3,6 +3,7 @@ pub mod gen;
 
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use std::panic::Location;
 use std::thread::ThreadId;
 
 pub struct CommonError {
@@ -22,7 +23,8 @@ impl CommonError {
     #[track_caller]
     pub fn new(kind :&'_ dyn CommonErrorKind, cause : String) -> CommonError {
         let func = utils::get_source_func_name(2);
-        let (file, line) = utils::get_source_file_and_line();
+        let loc = Location::caller();
+        let (file, line) = (loc.file(), loc.line() as i64);
 
         CommonError {
             cause,

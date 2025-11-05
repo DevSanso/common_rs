@@ -30,8 +30,3 @@ pub(crate) fn get_source_func_name(idx : usize) -> String {
 
     decode_bt_frames(bt.frames(), idx)
 }
-
-pub(crate) fn get_source_file_and_line() -> (&'static str, i64) {
-    let loc = Location::caller();
-    (loc.file(), loc.line() as i64)
-}
