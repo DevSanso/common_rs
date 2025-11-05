@@ -4,15 +4,17 @@ version = "0.1.1"
 edition = "2021"
 
 [dependencies]
+common_core = {path = "../common_core"}
+common_err = {path = "../common_err"}
+common_exec_duckdb = {path = "../common_exec_duckdb"}
+common_exec_pg = {path = "../common_exec_pg"}
+common_exec_scylla = {path = "../common_exec_scylla"}
+common_exec_shell = {path = "../common_exec_shell"}
+common_relational_exec = {path = "../common_relational_exec"}
+
 log = "0.4.22"
-ftail = "0.2.0"
+ftail = "0.3.1"
 libc = "0.2.174"
 
-common_core = {path = "../common_core"}
-common_conn = {path = "../common_conn"}
-duckdb_conn = {path = "../duckdb_conn"}
-scylla_conn = {path = "../scylla_conn"}
-postgres_conn = {path = "../postgres_conn"}
-
-[lib]
-crate-type = ["dylib"]
+[features]
+use_custom_common_err = ["common_err/file"]

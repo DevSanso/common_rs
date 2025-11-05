@@ -1,6 +1,3 @@
-mod func;
-mod types;
-
+pub mod func;
+pub mod types;
 pub mod macros;
-
-pub use func::*;

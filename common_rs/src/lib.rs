@@ -1,22 +1,15 @@
-pub use common_core as core;
-
 pub mod init;
-pub mod utils;
-pub mod db;
 
-pub mod logger {
-    pub use log::debug;
-    pub use log::error;
-    pub use log::info;
-    pub use log::trace;
+pub use common_core as c_core;
+pub use common_err as c_err;
 
-    pub fn get_is_trace_level() -> bool {
-        unsafe {
-            crate::init::logger::LOGGER_FILE_LEVEL_IS_TRACE
-        }
-    }
+pub mod exec {
+    pub use common_relational_exec as c_relational_exec;
+    pub use common_exec_duckdb as c_exec_duckdb;
+    pub use common_exec_scylla as c_exec_scylla;
+    pub use common_exec_shell as c_exec_shell;
+    pub use common_exec_pg as c_exec_pg;
 }
-
 pub mod signal {
     pub use crate::init::signal::SIGABRT;
     pub use crate::init::signal::SIGBUS;
@@ -27,9 +20,11 @@ pub mod signal {
         crate::init::signal::is_set_signal(num)
     }
 }
+pub mod logger {
+    use log;
 
-pub mod err {
-    pub use common_core::err as core;
-    pub use common_conn::err as db;
-    pub use common_core::err::create_error;
+    pub use log::debug as log_debug;
+    pub use log::info as log_info;
+    pub use log::warn as log_warn;
+    pub use log::error as log_error;
 }

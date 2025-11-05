@@ -1,0 +1,9 @@
+[package]
+name = "common_exec_pg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+postgres = "0.19.9"
+common_core = {path = "../common_core"}
+common_relational_exec = {path = "../common_relational_exec"}
