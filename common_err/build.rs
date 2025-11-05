@@ -45,8 +45,12 @@ fn main() {
     let data = if file.is_err() || file.as_ref().unwrap() == "" {
         Ok(String::from(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/default.toml"))))
     } else {
-        let file_path = std::env::var("COMMON_ERROR_FILE").unwrap();
+        let file_path_ret = std::env::var("COMMON_ERROR_FILE");
+        if file_path_ret.is_err() {
+            panic!("COMMON_ERROR_FILE environment variable not set");
+        }
 
+        let file_path = file_path_ret.unwrap();
         let f = std::fs::read(file_path.clone());
         let data = if f.is_err() {
             Err(format!("can't read file : {}", file_path))
