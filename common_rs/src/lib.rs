@@ -10,7 +10,16 @@ pub mod exec {
     pub use common_exec_shell as c_exec_shell;
     pub use common_exec_pg as c_exec_pg;
 }
+pub mod signal {
+    pub use crate::init::signal::SIGABRT;
+    pub use crate::init::signal::SIGBUS;
+    pub use crate::init::signal::SIGINT;
+    pub use crate::init::signal::SIGPIPE;
 
+    pub fn is_set_signal(num : i32) -> bool {
+        crate::init::signal::is_set_signal(num)
+    }
+}
 pub mod logger {
     use log;
 

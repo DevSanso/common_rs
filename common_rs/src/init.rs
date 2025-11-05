@@ -1,4 +1,4 @@
-mod signal;
+pub(crate) mod signal;
 mod logger;
 
 pub struct InitConfig<'a> {
