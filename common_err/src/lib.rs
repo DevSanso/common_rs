@@ -1,5 +1,5 @@
 mod utils;
-mod gen;
+pub mod gen;
 
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
