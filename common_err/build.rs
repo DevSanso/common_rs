@@ -1,5 +1,5 @@
 use std::io::Write;
-use toml::map::{Keys, Values};
+use toml::map::Keys;
 use toml::Table;
 
 fn write_enum_ident<V>(f : &mut std::fs::File, ks : Keys<'_, String, V>) -> Result<(), std::io::Error> {
@@ -45,7 +45,8 @@ fn main() {
     let data = if file.is_err() || file.as_ref().unwrap() == "" {
         Ok(String::from(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/default.toml"))))
     } else {
-        let file_path = file.unwrap();
+        let file_path = std::env::var("COMMON_ERROR_FILE").unwrap();
+
         let f = std::fs::read(file_path.clone());
         let data = if f.is_err() {
             Err(format!("can't read file : {}", file_path))

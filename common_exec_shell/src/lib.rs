@@ -3,7 +3,7 @@ mod shell_conn;
 use std::error::Error;
 
 use common_core::collection::pool::get_thread_safe_pool;
-use common_relational_exec::{RelationalExecutorInfo, RelationalExecutorPool, RelationalExecutor, RelationalValue};
+use common_relational_exec::{RelationalExecutorPool, RelationalExecutor};
 use shell_conn::LocalShellConnection;
 
 pub struct ShellSplit {
