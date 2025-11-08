@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 common_core = {path = "../common_core"}
 common_err = {path = "../common_err"}
+common_thread = {path = "../common_thread"}
 common_exec_duckdb = {path = "../common_exec_duckdb"}
 common_exec_pg = {path = "../common_exec_pg"}
 common_exec_scylla = {path = "../common_exec_scylla"}
