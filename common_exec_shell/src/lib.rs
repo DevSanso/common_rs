@@ -11,7 +11,7 @@ pub struct ShellSplit {
     next : String
 }
 
-pub fn create_scylla_conn_pool(name : String, alloc_size : usize) -> RelationalExecutorPool<ShellSplit> {
+pub fn create_shell_conn_pool(name : String, alloc_size : usize) -> RelationalExecutorPool<ShellSplit> {
     let gen_fn : Box<dyn Fn(()) -> Result<Box<dyn RelationalExecutor<ShellSplit>>, Box<dyn Error>>> = (|| {
 
         let real_fn  = move |_ : ()| {
