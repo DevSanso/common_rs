@@ -30,6 +30,8 @@ impl CommonErrors {
         CommonErrors {title, errs : Vec::with_capacity(3), thread_id : std::thread::current().id()}
     }
 
+    pub fn len(&self) -> usize {self.errs.len()}
+
     pub fn push(&mut self, error : CommonError) {
         self.errs.push(error);
     }
