@@ -15,10 +15,36 @@ pub struct CommonError {
     thread_id : ThreadId
 }
 
+pub struct CommonErrors {
+    title : &'static str,
+    errs : Vec<CommonError>,
+    thread_id : ThreadId,
+}
+
 pub trait CommonErrorKind {
     fn message(&self) -> &'static str;
 }
 
+impl CommonErrors {
+    pub fn new(title : &'static str) -> Self {
+        CommonErrors {title, errs : Vec::with_capacity(3), thread_id : std::thread::current().id()}
+    }
+
+    pub fn push(&mut self, error : CommonError) {
+        self.errs.push(error);
+    }
+
+    fn print_error(&self,f : &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "errorList({:?}): {}\n", self.thread_id, self.title)?;
+        let mut buf = String::with_capacity(1024);
+        for e in &self.errs {
+            let line = format!("\tcause={}, file={}:{}, func={}, message={}\n"
+                               , e.message, e.file, e.line, e.func_name, e.message);
+            buf.push_str(line.as_str());
+        }
+        write!(f,"{}", buf.as_str())
+    }
+}
 impl CommonError {
     #[track_caller]
     pub fn new(kind :&'_ dyn CommonErrorKind, cause : String) -> CommonError {
@@ -61,5 +87,18 @@ impl Display for CommonError {
         self.print_error(f)
     }
 }
+impl Debug for CommonErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.print_error(f)
+    }
+}
+
+impl Display for CommonErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.print_error(f)
+    }
+}
+
+impl Error for CommonErrors {}
 
 impl Error for CommonError {}
