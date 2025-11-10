@@ -16,7 +16,7 @@ pub(super) struct ScyllaFetcherRow {
 impl ScyllaFetcherRow {
     pub fn get_error(&mut self) -> Result<(), Box<dyn Error>> {
         let t = self.catch_err.take();
-        t.unwrap_or_else(|| SimpleError { msg: "catch_err is NULL".to_string() }.into_result())
+        t.unwrap_or_else(|| SimpleError { msg: "catch_err is NULL".to_string() }.to_result())
     }
 
     pub fn clone_col(&self) -> Vec<RelationalValue> {
@@ -116,7 +116,7 @@ impl ScyllaFetcherRow {
             NativeType::Float => Self::cast_cql_val_to_comm_float_value(cql_value),
             NativeType::Double => Self::cast_cql_val_to_comm_double_value(cql_value),
 
-            _ => return SimpleError {msg : format!("copy_response_data - can't cast data type:{:?}", t)}.into_result()
+            _ => return SimpleError {msg : format!("copy_response_data - can't cast data type:{:?}", t)}.to_result()
         };
         Ok(d)
     }
@@ -137,12 +137,12 @@ impl DeserializeRow<'_,'_> for ScyllaFetcherRow {
             let cql_value = <Option<CqlValue>>::deserialize(raw_c.spec.typ(), raw_c.slice)?;
 
             if cql_value.is_none() {
-                catch_err = SimpleError{msg :"ScyllaFetcherNew - deserialize CqlValue is None".to_string()}.into_result();
+                catch_err = SimpleError{msg :"ScyllaFetcherNew - deserialize CqlValue is None".to_string()}.to_result();
                 break;
             }
             let native_t = match raw_c.spec.typ() {
                 ColumnType::Native(n) => Ok(n),
-                _ =>  SimpleError{msg :"ScyllaFetcherNew - type not support, only support native".to_string()}.into_result()
+                _ =>  SimpleError{msg :"ScyllaFetcherNew - type not support, only support native".to_string()}.to_result()
             };
             
             if native_t.is_err() {
@@ -153,7 +153,7 @@ impl DeserializeRow<'_,'_> for ScyllaFetcherRow {
             let val = Self::cast_data(native_t.unwrap(), &cql_value.unwrap());
 
             if val.is_err() {
-                catch_err = SimpleError{msg : format!("deserialize CqlValue is Err:{}", val.unwrap_err())}.into_result();
+                catch_err = SimpleError{msg : format!("deserialize CqlValue is Err:{}", val.unwrap_err())}.to_result();
                 break;
             }
 

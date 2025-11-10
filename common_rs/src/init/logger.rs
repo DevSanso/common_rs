@@ -43,7 +43,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
 
                 if chk_write.is_err() {
                     ret = SimpleError {msg : format!("common_rs - logger,init,chk - {}", chk_write.err().unwrap())}
-                        .into_result();
+                        .to_result();
                     return;
                 }
             }
@@ -58,7 +58,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             ret = match ftail.init() {
                 Ok(_) => Ok(()),
                 Err(e) => SimpleError {msg : format!("common_rs - logger,init,console\
-                 - {}", e)}.into_result()
+                 - {}", e)}.to_result()
             }
         }
     });

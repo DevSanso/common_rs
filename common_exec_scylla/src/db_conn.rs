@@ -19,7 +19,7 @@ pub struct ScyllaConnection {
 impl ScyllaConnection {
     pub(crate) fn new(infos : Vec<RelationalExecutorInfo>) -> Result<Self, Box<dyn Error>> {
         if infos.len() <= 0 {
-            return SimpleError {msg: "scylla connection info array size of zero".to_string()}.into_result();
+            return SimpleError {msg: "scylla connection info array size of zero".to_string()}.to_result();
         }
 
         let mut builder = SessionBuilder::new();
@@ -41,7 +41,7 @@ impl ScyllaConnection {
 
         match block {
             Ok(ok) => Ok(ScyllaConnection {session : ok, rt}),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.new - {}", err)}.into_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.new - {}", err)}.to_result()
         }
     }
 }
@@ -53,7 +53,7 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 
         let prepare = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - {}", err)}.into_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - {}", err)}.to_result()
         }?;
 
         let mut result = RelationalExecuteResultSet::default();
@@ -82,7 +82,7 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         let feature = self.session.execute_unpaged(&prepare, real_param);
         let query_result = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - block_on - {}", err)}.into_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - block_on - {}", err)}.to_result()
         }?;
 
         if typ.len() <= 0 {
@@ -91,28 +91,28 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 
         let rows = match query_result.into_rows_result() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - query_result - {}", err)}.into_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - query_result - {}", err)}.to_result()
         }?;
 
         let mut row_iter = match rows.rows::<ScyllaFetcherRow>() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - row_iter - {}", err)}.into_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - row_iter - {}", err)}.to_result()
         }?;
 
         while let Some(r) = row_iter.next() {
             let mut convert_row = match r {
                 Ok(ok) => Ok(ok),
-                Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - convert_row - {}", err)}.into_result()
+                Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - convert_row - {}", err)}.to_result()
             }?;
 
             let chk_err = convert_row.get_error();
             if chk_err.is_err() {
-                return SimpleError {msg : chk_err.unwrap_err().to_string()}.into_result();
+                return SimpleError {msg : chk_err.unwrap_err().to_string()}.to_result();
             }
             let col_data = convert_row.clone_col();
 
             if col_data.len() != result.cols_name.len() {
-                return SimpleError {msg : format!("ScyllaConnection.execute - col_data - data len : {} != col count : {}", col_data.len(), result.cols_name.len())}.into_result()
+                return SimpleError {msg : format!("ScyllaConnection.execute - col_data - data len : {} != col count : {}", col_data.len(), result.cols_name.len())}.to_result()
             }
 
             result.cols_data.push(col_data);
@@ -125,7 +125,7 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         let ret = self.execute("SELECT CAST(toUnixTimestamp(now()) AS BIGINT) AS unix_timestamp  FROM system.local", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return SimpleError {msg : "ScyllaConnection.get_current_time".to_string()}.into_result();
+            return SimpleError {msg : "ScyllaConnection.get_current_time".to_string()}.to_result();
         }
 
         let data = match ret.cols_data[0][0] {

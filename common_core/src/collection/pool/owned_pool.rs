@@ -103,13 +103,13 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
                 if gen_item.is_err() {
                     let err_msg = gen_item.err().unwrap();
                     return SimpleError{
-                        msg : format!("pool_name:{}\n{}", self.pool_name, err_msg)}.into_result()
+                        msg : format!("pool_name:{}\n{}", self.pool_name, err_msg)}.to_result()
                 }
                 g.items.push_back(gen_item.unwrap());
                 g.alloc_size += 1;
                 } else {
                     return SimpleError{
-                        msg : format!("pool_name:{}", self.pool_name)}.into_result()
+                        msg : format!("pool_name:{}", self.pool_name)}.to_result()
                 }
             }
         }   

@@ -18,7 +18,7 @@ impl RelationalExecutor<ShellSplit> for LocalShellConnection {
     fn execute(&mut self, query: &'_ str, param: &[ShellSplit]) -> Result<RelationalExecuteResultSet, Box<dyn Error>> {
         if param.len() < 1 {
             return SimpleError { msg : "LocalShellConnection - execute - param is not exists".to_string()}
-                .into_result();
+                .to_result();
         }
         let cmdline = query.split(" ").collect::<Vec<&str>>();
 
@@ -29,7 +29,7 @@ impl RelationalExecutor<ShellSplit> for LocalShellConnection {
 
         if cmd.is_err() {
             let err = cmd.err().unwrap();
-            return SimpleError { msg : format!("LocalShellConnection - execute,cmd - {}", err)}.into_result();
+            return SimpleError { msg : format!("LocalShellConnection - execute,cmd - {}", err)}.to_result();
         }
 
         let output = cmd.unwrap();
@@ -37,7 +37,7 @@ impl RelationalExecutor<ShellSplit> for LocalShellConnection {
 
         output.stdout.unwrap().read_to_string(&mut buffer).map_err(|err| {
             SimpleError { msg: format!("LocalShellConnection - execute,output - {}", err) }
-                .into_result::<()>()
+                .to_result::<()>()
                 .unwrap_err()
         })?;
 
@@ -63,7 +63,7 @@ impl RelationalExecutor<ShellSplit> for LocalShellConnection {
             
             if first_size != col.len() {
                 return SimpleError {msg : format!("LocalShellConnection - \
-                    execute,parsing - left[{}] != right[{}]", first_size, col.len())}.into_result();
+                    execute,parsing - left[{}] != right[{}]", first_size, col.len())}.to_result();
             }
             ret.cols_data.push(col);
         }
@@ -78,7 +78,7 @@ impl RelationalExecutor<ShellSplit> for LocalShellConnection {
         match unix {
             Ok(d) => Ok(d),
             Err(e) => SimpleError { msg: 
-                format!("LocalShellConnection - get_current_time - {:?}", e) }.into_result(),
+                format!("LocalShellConnection - get_current_time - {:?}", e) }.to_result(),
         }
     }
 }

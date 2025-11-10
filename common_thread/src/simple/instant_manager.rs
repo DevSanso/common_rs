@@ -52,7 +52,7 @@ impl <T : 'static + Send> SimpleThreadManager<T> for InstantThreadManager<T> {
     fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), Box<dyn Error>> {
         if self.state.get_current() >= self.thread_cnt_limit {
             return SimpleError{msg : format!("ThreadPool - execute - limit {}/{}"
-                                             , self.state.get_current(), self.thread_cnt_limit)}.into_result();
+                                             , self.state.get_current(), self.thread_cnt_limit)}.to_result();
         }
 
         let clone_state = self.state.clone();

@@ -13,7 +13,7 @@ pub struct SimpleError {
 }
 
 impl SimpleError {
-    pub fn into_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
+    pub fn to_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
         Err(Box::new(self))
     }
 }

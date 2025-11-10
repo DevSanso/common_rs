@@ -76,6 +76,10 @@ impl CommonError {
         file={}:{}\n \
         func={}", self.thread_id, self.cause, self.message, self.file, self.line, self.func_name)
     }
+
+    pub fn to_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
+        Err(Box::new(self))
+    }
 }
 
 impl Debug for CommonError {
