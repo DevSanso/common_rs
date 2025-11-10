@@ -46,6 +46,10 @@ impl CommonErrors {
         }
         write!(f,"{}", buf.as_str())
     }
+
+    pub fn to_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
+        Err(Box::new(self))
+    }
 }
 impl CommonError {
     #[track_caller]
