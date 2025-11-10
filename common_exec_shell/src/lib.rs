@@ -7,8 +7,8 @@ use common_relational_exec::{RelationalExecutorPool, RelationalExecutor};
 use shell_conn::LocalShellConnection;
 
 pub struct ShellSplit {
-    sep : String,
-    next : String
+    pub sep : String,
+    pub next : String
 }
 
 pub fn create_shell_conn_pool(name : String, alloc_size : usize) -> RelationalExecutorPool<ShellSplit> {
