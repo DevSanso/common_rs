@@ -47,8 +47,8 @@ impl CommonErrors {
         write!(f,"{}", buf.as_str())
     }
 
-    pub fn to_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
-        Err(Box::new(self))
+    pub fn to_result<T, E>(self) -> Result<T, E> where Self: Into<E> {
+        Err(self.into())
     }
 }
 impl CommonError {
@@ -81,8 +81,8 @@ impl CommonError {
         func={}", self.thread_id, self.cause, self.message, self.file, self.line, self.func_name)
     }
 
-    pub fn to_result<T>(self) -> Result<T, Box<dyn std::error::Error>> {
-        Err(Box::new(self))
+    pub fn to_result<T, E>(self) -> Result<T, E> where Self: Into<E> {
+        Err(self.into())
     }
 }
 

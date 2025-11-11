@@ -6,7 +6,9 @@ use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 use scylla::client::session::Session;
 use scylla::client::session_builder::SessionBuilder;
-
+use scylla::deserialize::result::TypedRowIterator;
+use scylla::response::query_result::{QueryResult, QueryRowsResult};
+use scylla::statement::prepared::PreparedStatement;
 use common_core::utils::types::SimpleError;
 use common_relational_exec::{RelationalExecutorInfo, RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
 use util::ScyllaFetcherRow;
@@ -53,7 +55,7 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 
         let prepare = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - {}", err)}.to_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - {}", err)}.to_result::<PreparedStatement, Box<dyn Error>>()
         }?;
 
         let mut result = RelationalExecuteResultSet::default();
@@ -82,7 +84,7 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         let feature = self.session.execute_unpaged(&prepare, real_param);
         let query_result = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - block_on - {}", err)}.to_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - block_on - {}", err)}.to_result::<QueryResult, Box<dyn Error>>()
         }?;
 
         if typ.len() <= 0 {
@@ -91,18 +93,18 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 
         let rows = match query_result.into_rows_result() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - query_result - {}", err)}.to_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - query_result - {}", err)}.to_result::<QueryRowsResult, Box<dyn Error>>()
         }?;
 
         let mut row_iter = match rows.rows::<ScyllaFetcherRow>() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - row_iter - {}", err)}.to_result()
+            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - row_iter - {}", err)}.to_result::<TypedRowIterator<ScyllaFetcherRow>, Box<dyn Error>>()
         }?;
 
         while let Some(r) = row_iter.next() {
             let mut convert_row = match r {
                 Ok(ok) => Ok(ok),
-                Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - convert_row - {}", err)}.to_result()
+                Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - convert_row - {}", err)}.to_result::<ScyllaFetcherRow, Box<dyn Error>>()
             }?;
 
             let chk_err = convert_row.get_error();

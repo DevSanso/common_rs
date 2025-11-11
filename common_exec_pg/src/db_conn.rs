@@ -1,5 +1,5 @@
 use std::error::Error;
-
+use postgres::{Client, Row};
 use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExecuteResultSet, RelationalExecutorInfo};
 use postgres::types::ToSql;
 use postgres::types::Type;
@@ -48,7 +48,7 @@ impl PostgresConnection {
 
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("PostgresConnection - new - {}", err.to_string())}.to_result()
+            Err(err) => SimpleError {msg : format!("PostgresConnection - new - {}", err.to_string())}.to_result::<Client, Box<dyn Error>>()
         }?;
 
         Ok(PostgresConnection {
@@ -63,7 +63,7 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
 
         let rows = match self.client.query(query, pg_param.as_slice()) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("PostgresConnection - execute - {}", err.to_string())}.to_result()
+            Err(err) => SimpleError {msg : format!("PostgresConnection - execute - {}", err.to_string())}.to_result::<Vec<Row>, Box<dyn Error>>()
         }?;
 
         let mut ret = RelationalExecuteResultSet::default();
@@ -90,7 +90,7 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
                     &Type::INT8 => Ok(get_pg_data!(row, col_idx, i64, RelationalValue, BigInt)),
                     &Type::BYTEA => Ok(get_pg_data!(row, col_idx, Vec<u8>, RelationalValue, Bin)),
                     _ => {
-                        SimpleError { msg : format!("PostgresConnection - execute - not support this type({}), return NULL", cols_t[col_idx])}.to_result()
+                        SimpleError { msg : format!("PostgresConnection - execute - not support this type({}), return NULL", cols_t[col_idx])}.to_result::<RelationalValue, Box<dyn Error>>()
                     }
                 }?;
 
