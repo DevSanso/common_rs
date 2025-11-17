@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use common_core::collection::pool::ThreadSafePool;
@@ -16,6 +17,20 @@ pub enum RelationalValue {
     Null
 }
 
+impl Display for RelationalValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            RelationalValue::Double(d) => d.to_string(),
+            RelationalValue::Int(i) => i.to_string(),
+            RelationalValue::BigInt(i) => i.to_string(),
+            RelationalValue::String(s) => s.to_string(),
+            RelationalValue::Bool(b) => b.to_string(),
+            RelationalValue::Float(f) => f.to_string(),
+            RelationalValue::Null => "NULL".to_string(),
+            RelationalValue::Bin(b) => String::from_utf8(b.clone()).unwrap(),
+        })
+    }
+}
 
 #[derive(Default,Clone)]
 pub struct RelationalExecuteResultSet {
