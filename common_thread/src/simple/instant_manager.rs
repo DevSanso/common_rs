@@ -1,7 +1,6 @@
-use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::atomic::{Ordering, AtomicUsize, AtomicBool};
+use std::sync::atomic::{Ordering, AtomicUsize};
 use std::thread;
 
 use common_core::logger;

@@ -1,5 +1,6 @@
 use crate::CommonErrorKind;
 pub enum CommonDefaultErrorKind {
+	ConnectFail,
 	Critical,
 	Etc,
 	ExecuteFail,
@@ -17,6 +18,7 @@ pub enum CommonDefaultErrorKind {
 impl CommonErrorKind for CommonDefaultErrorKind {
 	fn message(&self) -> &'static str {
 		match self {
+			CommonDefaultErrorKind::ConnectFail => "Connect failed",
 			CommonDefaultErrorKind::Critical => "critical error, need restart system",
 			CommonDefaultErrorKind::Etc => "etc error",
 			CommonDefaultErrorKind::ExecuteFail => "execute error failed",
@@ -33,6 +35,7 @@ impl CommonErrorKind for CommonDefaultErrorKind {
 	}
 	fn name(&self) -> &'static str {
 		match self {
+			CommonDefaultErrorKind::ConnectFail => "CommonDefaultErrorKind::ConnectFail",
 			CommonDefaultErrorKind::Critical => "CommonDefaultErrorKind::Critical",
 			CommonDefaultErrorKind::Etc => "CommonDefaultErrorKind::Etc",
 			CommonDefaultErrorKind::ExecuteFail => "CommonDefaultErrorKind::ExecuteFail",

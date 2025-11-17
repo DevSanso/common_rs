@@ -11,3 +11,4 @@ Critical   = {message = "critical error, need restart system"}
 ExecuteFail = {message = "execute error failed"}
 LimitSize   = {message = "limit size"}
 SystemCallFail = {message = "System or Std Lib call failed"}
+ConnectFail = {message = "Connect failed"}

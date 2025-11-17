@@ -7,3 +7,4 @@ edition = "2021"
 duckdb = { version = "1.3.0",  features = ["bundled"]}
 common_core = {path = "../common_core"}
 common_relational_exec = {path = "../common_relational_exec"}
+common_err = {path = "../common_err"}

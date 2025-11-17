@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io::Read;
 use std::time::Duration;
 use std::process;
@@ -7,7 +6,6 @@ use std::process::Stdio;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
 use common_relational_exec::{RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
 
-use crate::ShellParam;
 pub struct LocalShellConnection;
 
 impl LocalShellConnection {

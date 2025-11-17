@@ -1,7 +1,5 @@
 mod shell_conn;
 
-use std::error::Error;
-
 use common_core::collection::pool::get_thread_safe_pool;
 use common_err::CommonError;
 use common_relational_exec::{RelationalExecutorPool, RelationalExecutor, RelationalValue};
@@ -13,7 +11,7 @@ pub struct ShellParam {
     pub next : String
 }
 
-pub fn create_shell_conn_pool(name : String, alloc_size : usize, sp : ShellParam) -> RelationalExecutorPool<RelationalValue> {
+pub fn create_shell_conn_pool(name : String, alloc_size : usize) -> RelationalExecutorPool<RelationalValue> {
     let gen_fn : Box<dyn Fn(()) -> Result<Box<dyn RelationalExecutor<RelationalValue>>, CommonError>> = (|| {
   
         let real_fn   = move |_ : ()| {

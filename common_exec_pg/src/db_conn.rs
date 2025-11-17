@@ -1,9 +1,7 @@
-use std::error::Error;
-use postgres::{Client, Row};
 use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExecuteResultSet, RelationalExecutorInfo};
 use postgres::types::ToSql;
 use postgres::types::Type;
-use common_core::utils::types::SimpleError;
+use common_err::{CommonError, gen::CommonDefaultErrorKind};
 
 pub struct PostgresConnection {
     client : postgres::Client
@@ -21,9 +19,9 @@ macro_rules! get_pg_data {
     };
 }
 
-fn convert_common_value_to_pg_param(param : &'_ [RelationalValue]) -> Result<Vec<&(dyn ToSql + Sync)>, Box<dyn Error>> {
+fn convert_common_value_to_pg_param(param : &'_ [RelationalValue]) -> Result<Vec<&(dyn ToSql + Sync)>, CommonError> {
     param.iter().map(| x | {
-        let convert: Result<&(dyn ToSql + Sync), Box<dyn Error>> = match x {
+        let convert: Result<&(dyn ToSql + Sync), CommonError> = match x {
             RelationalValue::BigInt(i) => Ok(i),
             RelationalValue::Int(i) => Ok(i),
             RelationalValue::Null => Ok(&Option::<i64>::None),
@@ -31,11 +29,13 @@ fn convert_common_value_to_pg_param(param : &'_ [RelationalValue]) -> Result<Vec
             RelationalValue::Bin(v) => Ok(v),
             RelationalValue::String(t) => Ok(t),
             _ => {
-                SimpleError {msg : format!("convert_common_value_to_pg_param - not support type({:?}), return null", x)}.to_result()
+                CommonError::new(&CommonDefaultErrorKind::ParsingFail, 
+                                 format!("convert_common_value_to_pg_param - not support type({:?}), return null", x)).to_result()
+                
             }
         };
         convert
-    }).collect::<Result<Vec<&(dyn ToSql + Sync)>, Box<dyn Error>>>()
+    }).collect::<Result<Vec<&(dyn ToSql + Sync)>, CommonError>>()
 }
 
 impl PostgresConnection {
@@ -43,12 +43,13 @@ impl PostgresConnection {
         format!("postgresql://{username}:{password}@{addr}/{db_name}?connect_timeout=60")
     }
 
-    pub(crate) fn new(info : RelationalExecutorInfo) -> Result<Self, Box<dyn Error>> {
+    pub(crate) fn new(info : RelationalExecutorInfo) -> Result<Self, CommonError> {
         let url = Self::create_pg_url(&info.user, &info.password, &info.addr, &info.name);
 
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("PostgresConnection - new - {}", err.to_string())}.to_result::<Client, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::ConnectFail, 
+                                         format!("PostgresConnection - new - {}", err.to_string())).to_result()
         }?;
 
         Ok(PostgresConnection {
@@ -58,12 +59,13 @@ impl PostgresConnection {
 }
 
 impl RelationalExecutor<RelationalValue> for PostgresConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, Box<dyn std::error::Error>> {
+    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
         let pg_param  = convert_common_value_to_pg_param(param)?;
 
         let rows = match self.client.query(query, pg_param.as_slice()) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("PostgresConnection - execute - {}", err.to_string())}.to_result::<Vec<Row>, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, 
+                                         format!("PostgresConnection - execute - {}", err.to_string())).to_result()
         }?;
 
         let mut ret = RelationalExecuteResultSet::default();
@@ -90,7 +92,8 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
                     &Type::INT8 => Ok(get_pg_data!(row, col_idx, i64, RelationalValue, BigInt)),
                     &Type::BYTEA => Ok(get_pg_data!(row, col_idx, Vec<u8>, RelationalValue, Bin)),
                     _ => {
-                        SimpleError { msg : format!("PostgresConnection - execute - not support this type({}), return NULL", cols_t[col_idx])}.to_result::<RelationalValue, Box<dyn Error>>()
+                        CommonError::new(&CommonDefaultErrorKind::ParsingFail,  
+                                         format!("PostgresConnection - execute - not support this type({}), return NULL", cols_t[col_idx])).to_result()
                     }
                 }?;
 
@@ -102,11 +105,11 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
         Ok(ret)
     }
 
-    fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>> {
+    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
         let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW())::bigint AS unix_timestamp;", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return SimpleError { msg : "PostgresConnection - get_current_time - not exists now return data".to_string() }.to_result();
+            return CommonError::new(&CommonDefaultErrorKind::NoData,  "PostgresConnection - get_current_time - not exists now return data").to_result();
         }
 
         let data = match ret.cols_data[0][0] {

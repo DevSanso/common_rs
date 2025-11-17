@@ -4,8 +4,8 @@ use std::sync::Once;
 
 use ftail::Ftail;
 use log::LevelFilter;
-
-use crate::c_core::utils::types::SimpleError;
+use common_err::CommonError;
+use common_err::gen::CommonDefaultErrorKind;
 
 fn convert_str_to_log_level(log_level : &'_ str) -> LevelFilter {
     match log_level {
@@ -34,7 +34,6 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
         }
 
         if log_file.is_some() {
-            let file = log_file.unwrap();
             let file_path = log_file.unwrap();
             {
                 let chk_write = std::fs::OpenOptions::new()
@@ -42,7 +41,7 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
                     .open(file_path.trim().to_string());
 
                 if chk_write.is_err() {
-                    ret = SimpleError {msg : format!("common_rs - logger,init,chk - {}", chk_write.err().unwrap())}
+                    ret = CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("common_rs - logger,init,chk - {}", chk_write.err().unwrap()))
                         .to_result();
                     return;
                 }
@@ -57,8 +56,8 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
 
             ret = match ftail.init() {
                 Ok(_) => Ok(()),
-                Err(e) => SimpleError {msg : format!("common_rs - logger,init,console\
-                 - {}", e)}.to_result()
+                Err(e) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("common_rs - logger,init,console\
+                 - {}", e)).to_result()
             }
         }
     });

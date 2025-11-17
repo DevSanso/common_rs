@@ -1,15 +1,10 @@
 mod util;
 
-use std::error::Error;
-
 use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 use scylla::client::session::Session;
 use scylla::client::session_builder::SessionBuilder;
-use scylla::deserialize::result::TypedRowIterator;
-use scylla::response::query_result::{QueryResult, QueryRowsResult};
-use scylla::statement::prepared::PreparedStatement;
-use common_core::utils::types::SimpleError;
+use common_err::{CommonError, gen::CommonDefaultErrorKind};
 use common_relational_exec::{RelationalExecutorInfo, RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
 use util::ScyllaFetcherRow;
 
@@ -19,9 +14,9 @@ pub struct ScyllaConnection {
 }
 
 impl ScyllaConnection {
-    pub(crate) fn new(infos : Vec<RelationalExecutorInfo>) -> Result<Self, Box<dyn Error>> {
+    pub(crate) fn new(infos : Vec<RelationalExecutorInfo>) -> Result<Self, CommonError> {
         if infos.len() <= 0 {
-            return SimpleError {msg: "scylla connection info array size of zero".to_string()}.to_result();
+            return CommonError::new(&CommonDefaultErrorKind::NoData, "scylla connection info array size of zero").to_result();
         }
 
         let mut builder = SessionBuilder::new();
@@ -43,25 +38,28 @@ impl ScyllaConnection {
 
         match block {
             Ok(ok) => Ok(ScyllaConnection {session : ok, rt}),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.new - {}", err)}.to_result()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::ConnectFail,
+                                         format!("ScyllaConnection.new - {}", err)).to_result()
         }
     }
 }
 impl RelationalExecutor<RelationalValue> for ScyllaConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, Box<dyn Error>> {
+    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
         common_core::logger::trace!("ScyllaCommonSqlConnection - prepare query:{} param:{:?}", query, param);
 
         let feature = self.session.prepare(query);
 
         let prepare = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - {}", err)}.to_result::<PreparedStatement, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                         format!("ScyllaConnection.execute - {}", err)).to_result()
         }?;
 
         let mut result = RelationalExecuteResultSet::default();
 
         let mut typ = Vec::new();
-        for col in prepare.get_result_set_col_specs().iter() {
+        let cols_g = prepare.get_current_result_set_col_specs();
+        for col in cols_g.get().iter() {
             result.cols_name.push(col.name().to_string());
             typ.push(col.typ());
         }
@@ -84,7 +82,8 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         let feature = self.session.execute_unpaged(&prepare, real_param);
         let query_result = match self.rt.block_on(feature) {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - block_on - {}", err)}.to_result::<QueryResult, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::ExecuteFail,
+                                         format!("ScyllaConnection.execute - block_on - {}", err)).to_result()
         }?;
 
         if typ.len() <= 0 {
@@ -93,28 +92,32 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 
         let rows = match query_result.into_rows_result() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - query_result - {}", err)}.to_result::<QueryRowsResult, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                         format!("ScyllaConnection.execute - query_result - {}", err)).to_result()
         }?;
 
         let mut row_iter = match rows.rows::<ScyllaFetcherRow>() {
             Ok(ok) => Ok(ok),
-            Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - row_iter - {}", err)}.to_result::<TypedRowIterator<ScyllaFetcherRow>, Box<dyn Error>>()
+            Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                         format!("ScyllaConnection.execute - row_iter - {}", err)).to_result()
         }?;
 
         while let Some(r) = row_iter.next() {
             let mut convert_row = match r {
                 Ok(ok) => Ok(ok),
-                Err(err) => SimpleError {msg : format!("ScyllaConnection.execute - convert_row - {}", err)}.to_result::<ScyllaFetcherRow, Box<dyn Error>>()
+                Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                             format!("ScyllaConnection.execute - convert_row - {}", err)).to_result()
             }?;
 
             let chk_err = convert_row.get_error();
             if chk_err.is_err() {
-                return SimpleError {msg : chk_err.unwrap_err().to_string()}.to_result();
+                return CommonError::extend(&CommonDefaultErrorKind::InvalidApiCall, "row read fail", chk_err.err().unwrap()).to_result()
             }
             let col_data = convert_row.clone_col();
 
             if col_data.len() != result.cols_name.len() {
-                return SimpleError {msg : format!("ScyllaConnection.execute - col_data - data len : {} != col count : {}", col_data.len(), result.cols_name.len())}.to_result()
+                return CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,
+                                        format!("ScyllaConnection.execute - col_data - data len : {} != col count : {}", col_data.len(), result.cols_name.len())).to_result()
             }
 
             result.cols_data.push(col_data);
@@ -123,11 +126,11 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         Ok(result)
     }
 
-    fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>> {
+    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
         let ret = self.execute("SELECT CAST(toUnixTimestamp(now()) AS BIGINT) AS unix_timestamp  FROM system.local", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return SimpleError {msg : "ScyllaConnection.get_current_time".to_string()}.to_result();
+            return CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,  "ScyllaConnection.get_current_time").to_result();
         }
 
         let data = match ret.cols_data[0][0] {

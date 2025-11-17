@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::Arc;
 use crate::simple::thread_pool::ThreadPool;
 use common_err::CommonError;
