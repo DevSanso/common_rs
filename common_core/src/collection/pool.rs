@@ -1,7 +1,7 @@
 mod owned_pool;
 
 use std::sync::Arc;
-use std::error::Error;
+use common_err::CommonError;
 
 pub trait PoolItem<T> {
     fn get_value<'b>(&'b mut self) -> &'b mut T;
@@ -9,12 +9,12 @@ pub trait PoolItem<T> {
     fn restoration(&mut self);
 }
 pub trait ThreadSafePool<T,P>  : Send + Sync  where T : 'static, P: 'static {
-    fn get_owned(&self, param : P) -> Result<Box<dyn PoolItem<T>>, Box<dyn Error>>;
+    fn get_owned(&self, param : P) -> Result<Box<dyn PoolItem<T>>, CommonError>;
     fn alloc_size(&self) -> usize;
     fn max_size(&self) -> usize;
 }
 
-pub fn get_thread_safe_pool<T : 'static,P : 'static>(name : String, gen : Box<dyn Fn(P) -> Result<T, Box<dyn Error>>>, max_size : usize) -> Arc<dyn ThreadSafePool<T,P>> {
+pub fn get_thread_safe_pool<T : 'static,P : 'static>(name : String, gen : Box<dyn Fn(P) -> Result<T, CommonError>>, max_size : usize) -> Arc<dyn ThreadSafePool<T,P>> {
     owned_pool::OwnedPool::new(name, gen, max_size)
 }
 

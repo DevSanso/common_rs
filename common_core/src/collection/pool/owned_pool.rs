@@ -2,10 +2,9 @@ use std::sync::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::VecDeque;
-use std::error::Error;
 
 use crate::collection::pool::{PoolItem,ThreadSafePool};
-use crate::utils::types::SimpleError;
+use common_err::{CommonError, gen::CommonDefaultErrorKind};
 
 pub(super) trait PoolCommander<T> {
     fn dispose(&self, item : T);
@@ -73,7 +72,7 @@ struct OwnedPoolState<T> {
 }
 
 struct InternalOwnedPool<T,P> where T : 'static, P: 'static {
-    gen : Box<dyn Fn(P) -> Result<T, Box<dyn Error>>>,
+    gen : Box<dyn Fn(P) -> Result<T, CommonError>>,
     max_size : usize,
     state : Mutex<OwnedPoolState<T>>,
     pool_name : String
@@ -83,16 +82,16 @@ unsafe impl<T,P> Sync for InternalOwnedPool<T,P> {}
 unsafe impl<T,P> Send for InternalOwnedPool<T,P> {}
 
 impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
-    pub fn new(name : String, gen : Box<dyn Fn(P) -> Result<T, Box<dyn Error>>>, max_size : usize) -> Arc<Self> {
+    pub fn new(name : String, gen : Box<dyn Fn(P) -> Result<T, CommonError>>, max_size : usize) -> Arc<Self> {
         Arc::new(InternalOwnedPool {
             gen,
             state : Mutex::new(OwnedPoolState { items: VecDeque::new(), alloc_size: 0 }),
-            max_size: max_size,
+            max_size,
             pool_name : name
         })
     }
 
-    fn new_alloc_if_len_zeros(&self, ps : Vec<P>) ->Result<Vec<T>,Box<dyn Error>> {
+    fn new_alloc_if_len_zeros(&self, ps : Vec<P>) ->Result<Vec<T>,CommonError> {
         let mut g = self.state.lock().unwrap();
         let l = ps.len();
 
@@ -102,14 +101,13 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
                     let gen_item = (self.gen)(p);
                 if gen_item.is_err() {
                     let err_msg = gen_item.err().unwrap();
-                    return SimpleError{
-                        msg : format!("pool_name:{}\n{}", self.pool_name, err_msg)}.to_result()
+                    return CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                            format!("pool_name:{}\n{}", self.pool_name, err_msg)).to_result()
                 }
-                g.items.push_back(gen_item.unwrap());
+                g.items.push_back(gen_item?);
                 g.alloc_size += 1;
                 } else {
-                    return SimpleError{
-                        msg : format!("pool_name:{}", self.pool_name)}.to_result()
+                    return CommonError::new(&CommonDefaultErrorKind::LimitSize, format!("pool_name:{}", self.pool_name)).to_result()
                 }
             }
         }   
@@ -123,13 +121,13 @@ impl<T,P> InternalOwnedPool<T,P> where T : 'static, P: 'static {
         Ok(ret)
     }
     #[inline]
-    fn new_alloc_if_len_zero(&self, p : P) ->Result<T,Box<dyn Error>> {
+    fn new_alloc_if_len_zero(&self, p : P) ->Result<T,CommonError> {
         let v = vec![p];
         let mut r = self.new_alloc_if_len_zeros(v)?;
         Ok(r.pop().unwrap())
     }
 
-    pub(super) fn get_owned(self : &Arc<Self>, param : P) -> Result<Box<dyn PoolItem<T>>, Box<dyn Error>> {
+    pub(super) fn get_owned(self : &Arc<Self>, param : P) -> Result<Box<dyn PoolItem<T>>, CommonError> {
         let item = self.new_alloc_if_len_zero(param)?;
         Ok(Box::new(PoolItemOwned::new(item, self.clone())))
     }
@@ -151,14 +149,14 @@ impl<T,P> PoolCommander<T> for InternalOwnedPool<T,P> {
         g.alloc_size -= 1;
     }
 
-    fn restoration(&self, item : T) {
-        let mut g = self.state.lock().unwrap();
-        g.items.push_back(item);
-    }
-
     fn disposes(&self, v : Vec<T>) {
         let mut g = self.state.lock().unwrap();
         g.alloc_size -= v.len();
+    }
+
+    fn restoration(&self, item : T) {
+        let mut g = self.state.lock().unwrap();
+        g.items.push_back(item);
     }
 
     fn restorations(&self, mut items : Vec<T>) {
@@ -178,7 +176,7 @@ unsafe impl<T,P> Sync for OwnedPool<T,P> {}
 unsafe impl<T,P> Send for OwnedPool<T,P> {}
 
 impl<T,P> OwnedPool<T,P> where T : 'static, P: 'static {
-    pub fn new(name : String, gen : Box<dyn Fn(P) -> Result<T, Box<dyn Error>>>, max_size : usize) -> Arc<Self> {
+    pub fn new(name : String, gen : Box<dyn Fn(P) -> Result<T, CommonError>>, max_size : usize) -> Arc<Self> {
         let internal = InternalOwnedPool::new(name,gen,max_size);
 
         Arc::new(OwnedPool {
@@ -188,7 +186,7 @@ impl<T,P> OwnedPool<T,P> where T : 'static, P: 'static {
 }
 
 impl <T,P> ThreadSafePool<T,P> for OwnedPool<T,P> where T : 'static, P: 'static {
-    fn get_owned(&self, param : P) -> Result<Box<dyn PoolItem<T>>, Box<dyn Error>> {
+    fn get_owned(&self, param : P) -> Result<Box<dyn PoolItem<T>>, CommonError> {
         self.internal.get_owned(param)
     }
 

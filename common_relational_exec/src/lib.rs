@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use common_core::collection::pool::ThreadSafePool;
 use common_core::collection::pool::PoolItem;
+use common_err::CommonError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RelationalValue {
@@ -39,8 +40,8 @@ pub struct RelationalExecuteResultSet {
 }
 
 pub trait RelationalExecutor<PARAM> {
-    fn execute(&mut self, query : &'_ str, param : &[PARAM]) -> Result<RelationalExecuteResultSet, Box<dyn Error>>;
-    fn get_current_time(&mut self) -> Result<std::time::Duration, Box<dyn Error>>;
+    fn execute(&mut self, query : &'_ str, param : &[PARAM]) -> Result<RelationalExecuteResultSet, CommonError>;
+    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError>;
 }
 
 #[derive(Debug,Clone, Default)]

@@ -1,14 +1,14 @@
 use std::error::Error;
 use std::sync::Arc;
 use crate::simple::thread_pool::ThreadPool;
-
+use common_err::CommonError;
 mod instant_manager;
 mod thread_pool;
 
 type ThreadFn<T> = dyn Fn(T) + Send + Sync;
 
 pub trait SimpleThreadManager<T : 'static + Send> {
-    fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), Box<dyn Error>>;
+    fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), CommonError>;
 }
 
 pub enum SimpleManagerKind {

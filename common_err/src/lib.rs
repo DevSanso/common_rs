@@ -6,79 +6,65 @@ use std::fmt::{Debug, Display, Formatter};
 use std::panic::Location;
 use std::thread::ThreadId;
 
+#[derive(Clone)]
+pub struct ErrDataTuple(pub String, pub &'static str, pub i64, &'static dyn CommonErrorKind);
+
 pub struct CommonError {
     cause : String,
     message : &'static str,
-    func_name : String,
-    line : i64,
-    file : &'static str,
-    thread_id : ThreadId
-}
-
-pub struct CommonErrors {
-    title : &'static str,
-    errs : Vec<CommonError>,
     thread_id : ThreadId,
+    func : Vec<ErrDataTuple>,
 }
 
 pub trait CommonErrorKind {
     fn message(&self) -> &'static str;
-}
-
-impl CommonErrors {
-    pub fn new(title : &'static str) -> Self {
-        CommonErrors {title, errs : Vec::with_capacity(3), thread_id : std::thread::current().id()}
-    }
-
-    pub fn len(&self) -> usize {self.errs.len()}
-
-    pub fn push(&mut self, error : CommonError) {
-        self.errs.push(error);
-    }
-
-    fn print_error(&self,f : &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "errorList({:?}): {}\n", self.thread_id, self.title)?;
-        let mut buf = String::with_capacity(1024);
-        for e in &self.errs {
-            let line = format!("\tcause={}, file={}:{}, func={}, message={}\n"
-                               , e.message, e.file, e.line, e.func_name, e.message);
-            buf.push_str(line.as_str());
-        }
-        write!(f,"{}", buf.as_str())
-    }
-
-    pub fn to_result<T, E>(self) -> Result<T, E> where Self: Into<E> {
-        Err(self.into())
-    }
+    fn name(&self) -> &'static str;
 }
 impl CommonError {
     #[track_caller]
-    pub fn new(kind :&'_ dyn CommonErrorKind, cause : String) -> CommonError {
+    pub fn new<S : AsRef<str>>(kind :&'static dyn CommonErrorKind, cause : S) -> CommonError {
         let func = utils::get_source_func_name(2);
         let loc = Location::caller();
         let (file, line) = (loc.file(), loc.line() as i64);
 
         CommonError {
-            cause,
+            cause : cause.as_ref().to_string(),
             message : kind.message(),
-            file,
-            line,
-            func_name : func,
-            thread_id : std::thread::current().id()
+            thread_id : std::thread::current().id(),
+            func : vec![ErrDataTuple(func, file, line, kind)],
+        }
+    }
+
+    #[track_caller]
+    pub fn extend<S : AsRef<str>>(kind :&'static dyn CommonErrorKind, cause : S, prev : CommonError) -> CommonError {
+        let func = utils::get_source_func_name(2);
+        let loc = Location::caller();
+        let (file, line) = (loc.file(), loc.line() as i64);
+
+        let mut f = vec![ErrDataTuple(func, file, line, kind)];
+        f.extend(prev.func.into_iter());
+        CommonError {
+            cause : cause.as_ref().to_string(),
+            message : kind.message(),
+            thread_id : std::thread::current().id(),
+            func : f,
         }
     }
 
     pub fn get_cause (&self) -> String {self.cause.clone()}
     pub fn get_message(&self) -> &'static str {self.message}
-    pub fn get_file(&self) -> &'static str {self.file}
-    pub fn get_line(&self) -> i64 {self.line}
-    pub fn get_func(&self) -> String { self.func_name.clone() }
-    
+
+    pub fn func(&self) ->Vec<ErrDataTuple> {self.func.clone()}
     fn print_error(&self,f : &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{:?} : cause {}\n \
-        message={}\n \
-        file={}:{}\n \
-        func={}", self.thread_id, self.cause, self.message, self.file, self.line, self.func_name)
+        write!(f,"{:?} : cause={}\n \
+        message={}\n", self.thread_id, self.cause, self.message)?;
+        
+        write!(f, "stack({})\n:", self.func.len())?;
+        for pos in self.func.as_slice() {
+            write!(f,"err= {}, file={}:{}, func={}\n", pos.3.name(), pos.1, pos.2, pos.0)?;
+        }
+        
+        Ok(())
     }
 
     pub fn to_result<T, E>(self) -> Result<T, E> where Self: Into<E> {
@@ -97,18 +83,5 @@ impl Display for CommonError {
         self.print_error(f)
     }
 }
-impl Debug for CommonErrors {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.print_error(f)
-    }
-}
-
-impl Display for CommonErrors {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.print_error(f)
-    }
-}
-
-impl Error for CommonErrors {}
 
 impl Error for CommonError {}

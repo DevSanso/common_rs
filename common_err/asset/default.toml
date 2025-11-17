@@ -1,10 +1,13 @@
 [error]
 MaxSize = {message = "memory is used Max size"}
 NotMatchArgs = {message = "args count not matching"}
-ParsingFAil = {message = "parsing failed"}
+ParsingFail = {message = "parsing failed"}
 NoData = {message = "no data"}
 OverFlowMemory = {message = "overflow memory size"}
 InvalidApiCall = {message = "invalid api call"}
 NoSupport = {message = "not support function"}
 Etc        = {message = "etc error"}
 Critical   = {message = "critical error, need restart system"}
+ExecuteFail = {message = "execute error failed"}
+LimitSize   = {message = "limit size"}
+SystemCallFail = {message = "System or Std Lib call failed"}

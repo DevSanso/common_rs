@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 common_core = {path = "../common_core"}
+common_err = {path = "../common_err"}

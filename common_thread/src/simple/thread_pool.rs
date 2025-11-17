@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-use std::error::Error;
 use std::marker::PhantomData;
 use std::thread;
 use std::sync::{mpsc, Arc, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Sender, Receiver};
-use common_core::logger;
-use common_core::utils::types::SimpleError;
+use common_err::CommonError;
+use common_err::gen::CommonDefaultErrorKind;
 use crate::simple::ThreadFn;
 use crate::simple::SimpleThreadManager;
 
@@ -31,17 +29,17 @@ impl ThreadStateMap {
         Arc::new(ThreadStateMap{ m: RwLock::new(v)})
     }
 
-    pub fn get(self : &Arc<Self>, idx : usize) -> Result<ThreadState, Box<dyn Error>> {
+    pub fn get(self : &Arc<Self>, idx : usize) -> Result<ThreadState, CommonError> {
         let reader = self.m.read().map_err(|e| {
-            SimpleError {msg : format!("ThreadStateMap - read - {}", e.to_string())}
+            CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("ThreadStateMap - read - {}", e.to_string()))
         })?;
 
         Ok(reader[idx].clone())
     }
 
-    pub fn set(self : &Arc<Self>, idx : usize, value : ThreadState) -> Result<(), Box<dyn Error>> {
+    pub fn set(self : &Arc<Self>, idx : usize, value : ThreadState) -> Result<(), CommonError> {
         let mut writer = self.m.write().map_err(|e| {
-            SimpleError {msg : format!("ThreadStateMap - write - {}", e.to_string())}
+            CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("ThreadStateMap - write - {}", e.to_string()))
         })?;
         writer[idx] = value;
 
@@ -132,7 +130,7 @@ impl<T : 'static + Send> Drop for ThreadPool<T> {
 }
 
 impl <T : 'static + Send> SimpleThreadManager<T> for ThreadPool<T> {
-    fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, _ : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), CommonError> {
         let data = ThreadChannelData {
             func : f,
             data : arg
@@ -145,7 +143,7 @@ impl <T : 'static + Send> SimpleThreadManager<T> for ThreadPool<T> {
         }
 
         self.senders[idx].send(data).map_err(|e| {
-            SimpleError {msg : format!("ThreadPool - Execute - {}", e.to_string())}
+            CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("ThreadPool - Execute - {}", e.to_string()))
         })?;
 
         Ok(())

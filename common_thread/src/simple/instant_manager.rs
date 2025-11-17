@@ -5,7 +5,7 @@ use std::sync::atomic::{Ordering, AtomicUsize, AtomicBool};
 use std::thread;
 
 use common_core::logger;
-use common_core::utils::types::SimpleError;
+use common_err::{CommonError, gen::CommonDefaultErrorKind};
 
 use crate::simple::ThreadFn;
 use crate::simple::SimpleThreadManager;
@@ -49,10 +49,10 @@ impl<T : 'static + Send> InstantThreadManager<T> {
 }
 
 impl <T : 'static + Send> SimpleThreadManager<T> for InstantThreadManager<T> {
-    fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, name : String, f :  &'static ThreadFn<T>, arg : T) -> Result<(), CommonError> {
         if self.state.get_current() >= self.thread_cnt_limit {
-            return SimpleError{msg : format!("ThreadPool - execute - limit {}/{}"
-                                             , self.state.get_current(), self.thread_cnt_limit)}.to_result();
+            return CommonError::new(&CommonDefaultErrorKind::LimitSize, format!("ThreadPool - execute - limit {}/{}"
+                                                                               , self.state.get_current(), self.thread_cnt_limit)).to_result();
         }
 
         let clone_state = self.state.clone();
@@ -67,7 +67,7 @@ impl <T : 'static + Send> SimpleThreadManager<T> for InstantThreadManager<T> {
                 clone_state.sub_current();
                 logger::debug!( "Thread pool ended {}", name );
             }).map_err(|e|{
-            SimpleError {msg : format!("ThreadPool - spawn - {}", e.to_string())}
+            CommonError::new(&CommonDefaultErrorKind::SystemCallFail,format!("ThreadPool - spawn - {}", e.to_string()))
         })?;
 
         Ok(())
