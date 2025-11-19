@@ -7,7 +7,7 @@ use std::panic::Location;
 use std::thread::ThreadId;
 
 #[derive(Clone)]
-pub struct ErrDataTuple(pub String, pub &'static str, pub i64, &'static dyn CommonErrorKind);
+pub struct ErrDataTuple(pub String, pub &'static str, pub i64, pub &'static dyn CommonErrorKind);
 
 pub struct CommonError {
     cause : String,
@@ -53,7 +53,7 @@ impl CommonError {
 
     pub fn get_cause (&self) -> String {self.cause.clone()}
     pub fn get_message(&self) -> &'static str {self.message}
-
+    pub fn func_ref(&self) -> &'_ Vec<ErrDataTuple> {&self.func}
     pub fn func(&self) ->Vec<ErrDataTuple> {self.func.clone()}
     fn print_error(&self,f : &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{:?} : cause={}\n \
