@@ -58,8 +58,8 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
         let mut result = RelationalExecuteResultSet::default();
 
         let mut typ = Vec::new();
-        let cols_g = prepare.get_current_result_set_col_specs();
-        for col in cols_g.get().iter() {
+        let cols_g = prepare.get_result_set_col_specs();
+        for col in cols_g.iter() {
             result.cols_name.push(col.name().to_string());
             typ.push(col.typ());
         }
