@@ -35,6 +35,8 @@ pub(super) struct InstantThreadManager<T> where T : 'static + Send{
     _mark : PhantomData<T>,
 }
 
+unsafe impl<T : 'static + Send> Send for InstantThreadManager<T> {}
+unsafe impl<T : 'static + Send> Sync for InstantThreadManager<T> {}
 impl<T : 'static + Send> InstantThreadManager<T> {
     pub fn new(max: usize) -> InstantThreadManager<T> {
         InstantThreadManager {

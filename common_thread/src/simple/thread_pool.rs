@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Sender, Receiver};
 use common_err::CommonError;
 use common_err::gen::CommonDefaultErrorKind;
+use crate::simple::instant_manager::InstantThreadManager;
 use crate::simple::ThreadFn;
 use crate::simple::SimpleThreadManager;
 
@@ -55,6 +56,9 @@ pub(super) struct ThreadPool<T> where T : 'static + Send  {
 
     current_th_id : AtomicUsize
 }
+
+unsafe impl<T : 'static + Send> Send for ThreadPool<T> {}
+unsafe impl<T : 'static + Send> Sync for ThreadPool<T> {}
 
 impl<T : 'static + Send> ThreadPool<T> {
     fn thread_entry(id : usize, state :Arc<ThreadStateMap>, force_stop : Arc<AtomicBool>, recv: Receiver<ThreadChannelData<T>>) {
