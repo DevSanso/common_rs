@@ -13,6 +13,7 @@ pub enum CommonDefaultErrorKind {
 	OverFlowMemory,
 	ParsingFail,
 	SystemCallFail,
+	ThirdLibCallFail,
 }
 
 impl CommonErrorKind for CommonDefaultErrorKind {
@@ -31,6 +32,7 @@ impl CommonErrorKind for CommonDefaultErrorKind {
 			CommonDefaultErrorKind::OverFlowMemory => "overflow memory size",
 			CommonDefaultErrorKind::ParsingFail => "parsing failed",
 			CommonDefaultErrorKind::SystemCallFail => "System or Std Lib call failed",
+			CommonDefaultErrorKind::ThirdLibCallFail => "ThirdLib call failed",
 		}
 	}
 	fn name(&self) -> &'static str {
@@ -48,6 +50,7 @@ impl CommonErrorKind for CommonDefaultErrorKind {
 			CommonDefaultErrorKind::OverFlowMemory => "CommonDefaultErrorKind::OverFlowMemory",
 			CommonDefaultErrorKind::ParsingFail => "CommonDefaultErrorKind::ParsingFail",
 			CommonDefaultErrorKind::SystemCallFail => "CommonDefaultErrorKind::SystemCallFail",
+			CommonDefaultErrorKind::ThirdLibCallFail => "CommonDefaultErrorKind::ThirdLibCallFail",
 		}
 	}
 }
