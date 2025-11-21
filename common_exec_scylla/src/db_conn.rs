@@ -139,6 +139,6 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
             _ => 0
         };
 
-        Ok(std::time::Duration::from_secs(data as u64))
+        Ok(std::time::Duration::from_millis(data as u64))
     }
 }

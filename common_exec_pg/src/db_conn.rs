@@ -106,7 +106,7 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
     }
 
     fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
-        let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW())::bigint AS unix_timestamp;", &[])?;
+        let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW() * 1000)::bigint AS unix_timestamp", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return CommonError::new(&CommonDefaultErrorKind::NoData,  "PostgresConnection - get_current_time - not exists now return data").to_result();
@@ -118,6 +118,6 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
             _ => 0
         };
 
-        Ok(std::time::Duration::from_secs(data as u64))
+        Ok(std::time::Duration::from_millis(data as u64))
     }
 }

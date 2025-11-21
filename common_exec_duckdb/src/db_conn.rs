@@ -115,12 +115,12 @@ impl RelationalExecutor<RelationalValue> for DuckDBConnection {
 
     fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
         let data : i64 = self.client.query_row(
-            "SELECT CAST(extract(epoch FROM current_timestamp) AS INTEGER) AS unix_time", [], |r| r.get(0))
+            "SELECT (epoch(now()) * 1000)::BIGINT AS unix_ms", [], |r| r.get(0))
             .map_err(|x| {
                 CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("Cannot get current time: {}", x.to_string()))
             })?;
 
-        Ok(std::time::Duration::from_secs(data as u64))
+        Ok(std::time::Duration::from_millis(data as u64))
     }
     
 }
