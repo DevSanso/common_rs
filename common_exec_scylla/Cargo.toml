@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 common_core = {path = "../common_core"}
+common_pair_exec = {path = "../common_pair_exec"}
 common_relational_exec = {path = "../common_relational_exec"}
 tokio = {version = "1.43.0"}
 scylla = "1.3.1"
