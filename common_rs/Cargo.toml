@@ -10,7 +10,6 @@ common_thread = {path = "../common_thread"}
 common_exec_duckdb = {path = "../common_exec_duckdb"}
 common_exec_pg = {path = "../common_exec_pg"}
 common_exec_scylla = {path = "../common_exec_scylla"}
-common_exec_shell = {path = "../common_exec_shell"}
 common_relational_exec = {path = "../common_relational_exec"}
 
 log = "0.4.22"

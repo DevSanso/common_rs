@@ -11,7 +11,6 @@ pub mod exec {
 
     pub use common_exec_duckdb as duckdb;
     pub use common_exec_scylla as scylla;
-    pub use common_exec_shell as shell;
     pub use common_exec_pg as pg;
 }
 pub mod signal {
