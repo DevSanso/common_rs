@@ -9,7 +9,7 @@ use scylla::client::session_builder::SessionBuilder;
 use scylla::response::query_result::{QueryResult, QueryRowsResult};
 use scylla::statement::prepared::PreparedStatement;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
-use common_pair_exec::{PairExecuteRet, PairExecutor, PairExecutorInfo, PairValueEnum};
+use common_pair_exec::{PairExecutor, PairExecutorInfo, PairValueEnum};
 use common_relational_exec::{RelationalExecutorInfo, RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
 use util::ScyllaFetcherRow;
 use crate::db_conn::util::ScyllaPairFetcherRow;
@@ -175,8 +175,8 @@ impl RelationalExecutor<RelationalValue> for ScyllaConnection {
 }
 
 impl PairExecutor for ScyllaConnection {
-    fn execute_pair(&mut self, query: &'_ str, param: &PairExecuteRet) -> Result<PairExecuteRet, CommonError> {
-        let execute_param = if let PairValueEnum::Array(a) = &param.1 {
+    fn execute_pair(&mut self, query: &'_ str, param: &PairValueEnum) -> Result<PairValueEnum, CommonError> {
+        let execute_param = if let PairValueEnum::Array(a) = &param {
             let mut p_vec = Vec::new();
             for param_data in a {
                 let p_ele : Option<&dyn SerializeValue> = match param_data {
@@ -209,7 +209,7 @@ impl PairExecutor for ScyllaConnection {
         let cols_g = prepare.get_result_set_col_specs();
 
         if cols_g.len() <= 0 {
-            return Ok(PairExecuteRet::default());
+            return Ok(PairValueEnum::Null);
         }
         
         let mut cache = HashMap::new();
@@ -258,12 +258,12 @@ impl PairExecutor for ScyllaConnection {
             }
         }
 
-        let mut ret = PairExecuteRet::default();
+        let mut ret = PairValueEnum::Null;
         let mut convert_m = HashMap::new();
         for item in cache {
             convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
         }
-        ret.1 = PairValueEnum::Map(convert_m);
+        ret = PairValueEnum::Map(convert_m);
         Ok(ret)
     }
 

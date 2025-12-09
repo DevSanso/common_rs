@@ -30,9 +30,6 @@ pub struct PairExecutorInfo {
     pub timeout_sec : u32
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct PairExecuteRet(pub String, pub PairValueEnum);
-
 impl Display for PairValueEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
@@ -51,7 +48,7 @@ impl Display for PairValueEnum {
 }
 
 pub trait PairExecutor {
-    fn execute_pair(&mut self, query : &'_ str, param : &PairExecuteRet) -> Result<PairExecuteRet, CommonError>;
+    fn execute_pair(&mut self, query : &'_ str, param : &PairValueEnum) -> Result<PairValueEnum, CommonError>;
     fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError>;
 }
 

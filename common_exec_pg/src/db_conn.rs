@@ -5,7 +5,7 @@ use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExec
 use postgres::types::ToSql;
 use postgres::types::Type;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
-use common_pair_exec::{PairExecuteRet, PairExecutor, PairValueEnum};
+use common_pair_exec::{PairExecutor, PairValueEnum};
 
 pub struct PostgresConnection {
     client : postgres::Client
@@ -153,8 +153,8 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
 }
 
 impl PairExecutor for PostgresConnection {
-    fn execute_pair(&mut self, query: &'_ str, param: &PairExecuteRet) -> Result<PairExecuteRet, CommonError> {
-        let p = if let PairValueEnum::Array(a) = &param.1 {
+    fn execute_pair(&mut self, query: &'_ str, param: &PairValueEnum) -> Result<PairValueEnum, CommonError> {
+        let p = if let PairValueEnum::Array(a) = &param {
             Ok(a.as_slice())
         } else {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not support type").to_result()
@@ -163,10 +163,9 @@ impl PairExecutor for PostgresConnection {
         let pg_param  = convert_common_pair_value_to_pg_param(p)?;
 
         let rows = self.run_execute_query(query, pg_param)?;
-        let mut ret = PairExecuteRet::default();
 
         if rows.len() <= 0 {
-            return Ok(ret);
+            return Ok(PairValueEnum::Null);
         }
 
         let row_len = rows.len();
@@ -198,8 +197,7 @@ impl PairExecutor for PostgresConnection {
 
         }
 
-        ret.1 = PairValueEnum::Map(map);
-        Ok(ret)
+        Ok(PairValueEnum::Map(map))
     }
 
     fn get_current_time(&mut self) -> Result<Duration, CommonError> {

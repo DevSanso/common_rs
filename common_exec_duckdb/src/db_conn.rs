@@ -5,7 +5,7 @@ use duckdb::types::ToSql;
 use duckdb::arrow::datatypes::DataType;
 use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExecuteResultSet, RelationalExecutorInfo};
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
-use common_pair_exec::{PairExecuteRet, PairExecutor, PairValueEnum};
+use common_pair_exec::{PairExecutor, PairValueEnum};
 
 pub struct DuckDBConnection {
     client : duckdb::Connection
@@ -155,12 +155,12 @@ impl RelationalExecutor<RelationalValue> for DuckDBConnection {
 }
 
 impl PairExecutor for DuckDBConnection {
-    fn execute_pair(&mut self, query: &'_ str, param: &PairExecuteRet) -> Result<PairExecuteRet, CommonError> {
+    fn execute_pair(&mut self, query: &'_ str, param: &PairValueEnum) -> Result<PairValueEnum, CommonError> {
         let mut prepare = self.client.prepare(query).map_err(|x| {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection.execute_pair - {}", x.to_string()))
         })?;
         
-        let p = if let PairValueEnum::Array(a) = &param.1 {
+        let p = if let PairValueEnum::Array(a) = &param {
             Ok(a.as_slice())
         } else {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not support type").to_result()
@@ -208,13 +208,18 @@ impl PairExecutor for DuckDBConnection {
             }
         }
 
-        let mut ret = PairExecuteRet::default();
+        
         let mut convert_m = HashMap::new();
         for item in cache {
             convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
         }
-        ret.1 = PairValueEnum::Map(convert_m);
-        Ok(ret)
+        
+        if convert_m.is_empty() {
+            Ok(PairValueEnum::Null)
+        }
+        else {
+            Ok(PairValueEnum::Map(convert_m))
+        }
     }
 
     fn get_current_time(&mut self) -> Result<Duration, CommonError> {
