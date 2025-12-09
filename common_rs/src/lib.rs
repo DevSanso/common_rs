@@ -6,7 +6,7 @@ pub use common_thread as th;
 pub mod exec {
     pub mod interfaces {
         pub use common_relational_exec as relational;
-
+        pub use common_pair_exec as pair;
     }
 
     pub use common_exec_duckdb as duckdb;

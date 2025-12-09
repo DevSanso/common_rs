@@ -52,6 +52,5 @@ pub struct RelationalExecutorInfo {
     pub timeout_sec : u32
 }
 
-
 pub type RelationalExecutorBox<T> = Box<dyn PoolItem<Box<dyn RelationalExecutor<T>>>>;
 pub type RelationalExecutorPool<T> = Arc<dyn ThreadSafePool<Box<dyn RelationalExecutor<T>>,()>>;

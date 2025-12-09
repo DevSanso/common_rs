@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-
+use std::sync::Arc;
+use common_core::collection::pool::{PoolItem, ThreadSafePool};
 use common_err::CommonError;
 #[derive(Clone, Debug, PartialEq)]
 pub enum PairValueEnum {
@@ -18,6 +19,15 @@ pub enum PairValueEnum {
 
 impl Default for PairValueEnum {
     fn default() -> Self {PairValueEnum::Null}
+}
+
+#[derive(Debug,Clone, Default)]
+pub struct PairExecutorInfo {
+    pub addr : String,
+    pub name : String,
+    pub user : String,
+    pub password : String,
+    pub timeout_sec : u32
 }
 
 #[derive(Clone, Debug, Default)]
@@ -44,3 +54,6 @@ pub trait PairExecutor {
     fn execute_pair(&mut self, query : &'_ str, param : &PairExecuteRet) -> Result<PairExecuteRet, CommonError>;
     fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError>;
 }
+
+pub type PairExecutorBox = Box<dyn PoolItem<Box<dyn PairExecutor>>>;
+pub type PairExecutorPool = Arc<dyn ThreadSafePool<Box<dyn PairExecutor>,()>>;

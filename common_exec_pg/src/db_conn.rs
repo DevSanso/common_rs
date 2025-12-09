@@ -66,8 +66,8 @@ impl PostgresConnection {
         format!("postgresql://{username}:{password}@{addr}/{db_name}?connect_timeout=60")
     }
 
-    pub(crate) fn new(info : RelationalExecutorInfo) -> Result<Self, CommonError> {
-        let url = Self::create_pg_url(&info.user, &info.password, &info.addr, &info.name);
+    pub(crate) fn new(user : &'_ str, password : &'_ str, addr : &'_ str, name : &'_ str) -> Result<Self, CommonError> {
+        let url = Self::create_pg_url(user, password, addr, name);
 
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),

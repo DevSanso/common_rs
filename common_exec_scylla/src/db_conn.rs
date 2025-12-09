@@ -9,7 +9,7 @@ use scylla::client::session_builder::SessionBuilder;
 use scylla::response::query_result::{QueryResult, QueryRowsResult};
 use scylla::statement::prepared::PreparedStatement;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
-use common_pair_exec::{PairExecuteRet, PairExecutor, PairValueEnum};
+use common_pair_exec::{PairExecuteRet, PairExecutor, PairExecutorInfo, PairValueEnum};
 use common_relational_exec::{RelationalExecutorInfo, RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
 use util::ScyllaFetcherRow;
 use crate::db_conn::util::ScyllaPairFetcherRow;
@@ -19,8 +19,17 @@ pub struct ScyllaConnection {
     rt : Runtime
 }
 
+#[derive(Debug,Clone, Default)]
+pub struct ScyllaConnInfo {
+    pub addr : String,
+    pub name : String,
+    pub user : String,
+    pub password : String,
+    pub timeout_sec : u32
+}
+
 impl ScyllaConnection {
-    pub(crate) fn new(infos : Vec<RelationalExecutorInfo>) -> Result<Self, CommonError> {
+    pub(crate) fn new(infos : Vec<ScyllaConnInfo>) -> Result<Self, CommonError> {
         if infos.len() <= 0 {
             return CommonError::new(&CommonDefaultErrorKind::NoData, "scylla connection info array size of zero").to_result();
         }
