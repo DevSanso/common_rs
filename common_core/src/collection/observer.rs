@@ -1,17 +1,17 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-pub struct ChangeSubject<T : 'static + Clone> {
+pub struct Subject<T : 'static + Clone> {
     current : Option<T>,
     seq     : AtomicU64
 }
 
-impl<T : 'static + Clone> ChangeSubject<T> {
-    pub fn new() -> ChangeSubject<T> {
-        ChangeSubject { current : None, seq: AtomicU64::new(0) }
+impl<T : 'static + Clone> Subject<T> {
+    pub fn new() -> Subject<T> {
+        Subject { current : None, seq: AtomicU64::new(0) }
     }
 
-    pub fn new_arc() -> Arc<ChangeSubject<T>> {
-        Arc::new(ChangeSubject { current : None, seq: AtomicU64::new(0) })
+    pub fn new_arc() -> Arc<Subject<T>> {
+        Arc::new(Subject { current : None, seq: AtomicU64::new(0) })
     }
 
     pub fn notify(&mut self, val : T) {
@@ -20,14 +20,14 @@ impl<T : 'static + Clone> ChangeSubject<T> {
     }
 }
 
-pub struct ChangeObserver<'a, T : 'static + Clone> {
-    observer : &'a ChangeSubject<T>,
+pub struct Observer<'a, T : 'static + Clone> {
+    observer : &'a Subject<T>,
     seq     : AtomicU64
 }
 
-impl<'a, T : 'static + Clone> ChangeObserver<'a, T> {
-    pub fn subscribe(subject : &'_ ChangeSubject<T>) -> ChangeObserver<'_, T> {
-        ChangeObserver {
+impl<'a, T : 'static + Clone> Observer<'a, T> {
+    pub fn subscribe(subject : &'_ Subject<T>) -> Observer<'_, T> {
+        Observer {
             observer : &subject,
             seq      : AtomicU64::new(subject.seq.load(Ordering::SeqCst)),
         }
@@ -44,15 +44,15 @@ impl<'a, T : 'static + Clone> ChangeObserver<'a, T> {
     }
 }
 
-pub struct ChangeThreadSafeObserver<T : 'static + Clone> {
-    observer : Arc<ChangeSubject<T>>,
+pub struct ThreadSafeObserver<T : 'static + Clone> {
+    observer : Arc<Subject<T>>,
     seq     : AtomicU64
 }
 
-impl<T : 'static + Clone> ChangeThreadSafeObserver<T> {
-    pub fn subscribe(subject : Arc<ChangeSubject<T>>) -> ChangeThreadSafeObserver<T> {
+impl<T : 'static + Clone> ThreadSafeObserver<T> {
+    pub fn subscribe(subject : Arc<Subject<T>>) -> ThreadSafeObserver<T> {
         let seq = subject.seq.load(Ordering::SeqCst);
-        ChangeThreadSafeObserver {
+        ThreadSafeObserver {
             observer : subject,
             seq      : AtomicU64::new(seq),
         }
