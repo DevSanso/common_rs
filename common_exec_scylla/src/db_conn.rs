@@ -196,7 +196,11 @@ impl PairExecutor for ScyllaConnection {
                 p_vec.push(p_ele);
             }
             Ok(p_vec)
-        } else {
+        }
+        else if param == &PairValueEnum::Null {
+            Ok(Vec::new())
+        }  
+        else {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not array type").to_result()
         }?;
         

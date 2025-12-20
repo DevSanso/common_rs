@@ -1,3 +1,5 @@
+use rand::distr::Alphanumeric;
+use rand::Rng;
 use super::types::*;
 
 pub fn enum_option_get_only_one<E, T>(
@@ -30,3 +32,11 @@ where
     value.clone_enum()
 }
 
+pub fn generate_random_string(length: usize) -> String {
+    let mut rng = rand::rng();
+
+    (0..length)
+        .map(|_| rng.sample(Alphanumeric))
+        .map(char::from)
+        .collect()
+}
