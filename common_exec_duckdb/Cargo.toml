@@ -9,3 +9,13 @@ common_core = {path = "../common_core"}
 common_relational_exec = {path = "../common_relational_exec"}
 common_pair_exec = {path = "../common_pair_exec"}
 common_err = {path = "../common_err"}
+
+[dev-dependencies]
+common_pair_exec = {path = "../common_pair_exec"}
+common_core = {path = "../common_core"}
+common_exec_duckdb = {path = "../common_exec_duckdb"}
+toml = "0.8.19"
+
+[[test]]
+name = "test_scylla"
+path = "tests/tests_pair.rs"

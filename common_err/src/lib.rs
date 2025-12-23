@@ -7,7 +7,7 @@ use std::panic::Location;
 use std::thread::ThreadId;
 
 #[derive(Clone)]
-pub struct ErrDataTuple(pub String, pub &'static str, pub i64, pub &'static dyn CommonErrorKind);
+pub struct ErrDataTuple(pub String, pub &'static str, pub i64, pub &'static dyn CommonErrorKind, pub String);
 
 pub struct CommonError {
     cause : String,
@@ -31,7 +31,7 @@ impl CommonError {
             cause : cause.as_ref().to_string(),
             message : kind.message(),
             thread_id : std::thread::current().id(),
-            func : vec![ErrDataTuple(func, file, line, kind)],
+            func : vec![ErrDataTuple(func, file, line, kind, cause.as_ref().to_string())],
         }
     }
 
@@ -41,7 +41,7 @@ impl CommonError {
         let loc = Location::caller();
         let (file, line) = (loc.file(), loc.line() as i64);
 
-        let mut f = vec![ErrDataTuple(func, file, line, kind)];
+        let mut f = vec![ErrDataTuple(func, file, line, kind, cause.as_ref().to_string())];
         f.extend(prev.func.into_iter());
         CommonError {
             cause : cause.as_ref().to_string(),
@@ -56,12 +56,12 @@ impl CommonError {
     pub fn func_ref(&self) -> &'_ Vec<ErrDataTuple> {&self.func}
     pub fn func(&self) ->Vec<ErrDataTuple> {self.func.clone()}
     fn print_error(&self,f : &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{:?} : cause={}\n \
+        write!(f,"{:?} : cause={:.128}\n \
         message={}\n", self.thread_id, self.cause, self.message)?;
         
-        write!(f, "stack({})\n:", self.func.len())?;
+        write!(f, "stack({}):\n", self.func.len())?;
         for pos in self.func.as_slice() {
-            write!(f,"err= {}, file={}:{}, func={}\n", pos.3.name(), pos.1, pos.2, pos.0)?;
+            write!(f,"err={}, file={:.256}:{}, func={:.256}, cause={:.1024}\n", pos.3.name(), pos.1, pos.2, pos.0, pos.4)?;
         }
         
         Ok(())

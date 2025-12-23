@@ -99,6 +99,67 @@ impl DuckDBConnection {
 
         Ok(std::time::Duration::from_millis(data as u64))
     }
+
+    fn run_query_query(mut prepare : duckdb::Statement, duck_param : Vec<&'_ dyn ToSql>) -> Result<PairValueEnum, CommonError> {
+        let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
+            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection.execute_pair - execute - {}", x.to_string()))
+        })?;
+
+        let mut cache = HashMap::new();
+        let mut cache_idx_m = HashMap::new();
+        let once = std::sync::atomic::AtomicBool::new(true);
+
+        loop {
+            let row = rows.next();
+
+            if row.is_err() {
+                let e = row.err().unwrap();
+                return CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
+                                        format!("DuckDBConnection - execute,next - {}", e.to_string())).to_result()
+            }
+
+            if let Some(r) = row.unwrap() {
+                let schema = r.as_ref().schema();
+
+                 if once.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                    for field in 0..schema.fields.len() {
+                        cache.insert((*schema.fields[field].name()).clone(), Vec::<PairValueEnum>::new());
+                        cache_idx_m.insert(field, (*schema.fields[field].name()).clone());
+                    }
+                };
+
+                for idx in 0..schema.fields.len() {
+                    let key = cache_idx_m.get(&idx).ok_or_else(|| {
+                        CommonError::new(&CommonDefaultErrorKind::NoData, format!("not exists idx : {}", idx))
+                    })?;
+
+                    let v = cache.get_mut(key).ok_or_else(|| {
+                        CommonError::new(&CommonDefaultErrorKind::NoData, format!("not exists col idx : {}", idx))
+                    })?;
+
+                    let data = get_row_data!(schema, idx, r, PairValueEnum)?;
+
+                    v.push(data);
+                }
+            }
+            else {
+                break;
+            }
+        }
+
+
+        let mut convert_m = HashMap::new();
+        for item in cache {
+            convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
+        }
+
+        if convert_m.is_empty() {
+            Ok(PairValueEnum::Null)
+        }
+        else {
+            Ok(PairValueEnum::Map(convert_m))
+        }
+    }
 }
 
 impl RelationalExecutor<RelationalValue> for DuckDBConnection {
@@ -157,69 +218,23 @@ impl RelationalExecutor<RelationalValue> for DuckDBConnection {
 impl PairExecutor for DuckDBConnection {
     fn execute_pair(&mut self, query: &'_ str, param: &PairValueEnum) -> Result<PairValueEnum, CommonError> {
         let mut prepare = self.client.prepare(query).map_err(|x| {
-            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection.execute_pair - {}", x.to_string()))
+            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection - execute - {}", x.to_string()))
         })?;
         
         let p = if let PairValueEnum::Array(a) = &param {
             Ok(a.as_slice())
+        } else if param == &PairValueEnum::Null {
+            const ZERO_ARRAY : [PairValueEnum;0] = [];
+            Ok(&ZERO_ARRAY as &[PairValueEnum])
         } else {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not support type").to_result()
         }?;
 
         let duck_param  = convert_pair_value_to_duckdb_param(p)?;
-        let schema = prepare.schema();
-        let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
-            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection.execute_pair - execute - {}", x.to_string()))
-        })?;
-        
-        let mut cache = HashMap::new();
-        let mut cache_idx_m = HashMap::new();
-        
-        for field in 0..schema.fields.len() {
-            cache.insert(schema.fields[field].name(), Vec::<PairValueEnum>::new());
-            cache_idx_m.insert(field, schema.fields[field].name());
-        }
-        
-        loop {
-            let row = rows.next();
-            if row.is_err() {
-                let e = row.err().unwrap();
-                return CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
-                                        format!("DuckDBConnection - execute,next - {}", e.to_string())).to_result()
-            }
 
-            if let Some(r) = row.unwrap() {
-                for idx in 0..schema.fields.len() {
-                    let key = cache_idx_m.get(&idx).ok_or_else(|| {
-                        CommonError::new(&CommonDefaultErrorKind::NoData, format!("not exists idx : {}", idx))
-                    })?;
-
-                    let v = cache.get_mut(key).ok_or_else(|| {
-                        CommonError::new(&CommonDefaultErrorKind::NoData, format!("not exists col idx : {}", idx))
-                    })?;
-
-                    let data = get_row_data!(schema, idx, r, PairValueEnum)?;
-                    
-                    v.push(data);
-                }
-            }
-            else {
-                break;
-            }
-        }
-
-        
-        let mut convert_m = HashMap::new();
-        for item in cache {
-            convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
-        }
-        
-        if convert_m.is_empty() {
-            Ok(PairValueEnum::Null)
-        }
-        else {
-            Ok(PairValueEnum::Map(convert_m))
-        }
+        Self::run_query_query(prepare, duck_param).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::InvalidApiCall, "run_query_query failed", e)
+        })
     }
 
     fn get_current_time(&mut self) -> Result<Duration, CommonError> {

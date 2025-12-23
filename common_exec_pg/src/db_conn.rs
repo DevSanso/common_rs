@@ -80,7 +80,7 @@ impl PostgresConnection {
         })
     }
     fn get_current_duration(&mut self) -> Result<std::time::Duration, CommonError> {
-        let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW() * 1000)::bigint AS unix_timestamp", &[])?;
+        let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW())::bigint * 1000 AS unix_timestamp", &[])?;
 
         if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
             return CommonError::new(&CommonDefaultErrorKind::NoData,  "PostgresConnection - get_current_time - not exists now return data").to_result();
@@ -99,7 +99,7 @@ impl PostgresConnection {
         match self.client.query(query, param.as_slice()) {
             Ok(ok) => Ok(ok),
             Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
-                                         format!("PostgresConnection - execute - {}", err.to_string())).to_result()
+                                         format!("PostgresConnection, [query:{:.1024},dbErr:{}]", query, err.to_string())).to_result()
         }
     }
 }
@@ -108,7 +108,9 @@ impl RelationalExecutor<RelationalValue> for PostgresConnection {
     fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
         let pg_param  = convert_common_value_to_pg_param(param)?;
 
-        let rows = self.run_execute_query(query, pg_param)?;
+        let rows = self.run_execute_query(query, pg_param).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "run_execute_query failed", e)
+        })?;;
 
         let mut ret = RelationalExecuteResultSet::default();
 
@@ -156,13 +158,18 @@ impl PairExecutor for PostgresConnection {
     fn execute_pair(&mut self, query: &'_ str, param: &PairValueEnum) -> Result<PairValueEnum, CommonError> {
         let p = if let PairValueEnum::Array(a) = &param {
             Ok(a.as_slice())
-        } else {
+        } else if param == &PairValueEnum::Null {
+            const ZERO_ARRAY : [PairValueEnum;0] = [];
+            Ok(&ZERO_ARRAY as &[PairValueEnum])
+        }else {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not support type").to_result()
         }?;
 
         let pg_param  = convert_common_pair_value_to_pg_param(p)?;
 
-        let rows = self.run_execute_query(query, pg_param)?;
+        let rows = self.run_execute_query(query, pg_param).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "run_execute_query failed", e)
+        })?;
 
         if rows.len() <= 0 {
             return Ok(PairValueEnum::Null);
