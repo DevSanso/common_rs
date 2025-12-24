@@ -5,7 +5,6 @@ pub use common_err as c_err;
 pub use common_thread as th;
 pub mod exec {
     pub mod interfaces {
-        pub use common_relational_exec as relational;
         pub use common_pair_exec as pair;
     }
 

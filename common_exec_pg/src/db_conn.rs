@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use postgres::Row;
-use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExecuteResultSet, RelationalExecutorInfo};
 use postgres::types::ToSql;
 use postgres::types::Type;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
@@ -21,25 +20,6 @@ macro_rules! get_pg_data {
             }
         }
     };
-}
-
-fn convert_common_value_to_pg_param(param : &'_ [RelationalValue]) -> Result<Vec<&(dyn ToSql + Sync)>, CommonError> {
-    param.iter().map(| x | {
-        let convert: Result<&(dyn ToSql + Sync), CommonError> = match x {
-            RelationalValue::BigInt(i) => Ok(i),
-            RelationalValue::Int(i) => Ok(i),
-            RelationalValue::Null => Ok(&Option::<i64>::None),
-            RelationalValue::Double(f) => Ok(f),
-            RelationalValue::Bin(v) => Ok(v),
-            RelationalValue::String(t) => Ok(t),
-            _ => {
-                CommonError::new(&CommonDefaultErrorKind::ParsingFail, 
-                                 format!("convert_common_value_to_pg_param - not support type({:?}), return null", x)).to_result()
-                
-            }
-        };
-        convert
-    }).collect::<Result<Vec<&(dyn ToSql + Sync)>, CommonError>>()
 }
 
 fn convert_common_pair_value_to_pg_param(param : &'_ [PairValueEnum]) -> Result<Vec<&(dyn ToSql + Sync)>, CommonError> {
@@ -80,19 +60,29 @@ impl PostgresConnection {
         })
     }
     fn get_current_duration(&mut self) -> Result<std::time::Duration, CommonError> {
-        let ret = self.execute("SELECT EXTRACT(EPOCH FROM NOW())::bigint * 1000 AS unix_timestamp", &[])?;
+        let ret = self.execute_pair("SELECT EXTRACT(EPOCH FROM NOW())::bigint * 1000 AS unix_timestamp", &PairValueEnum::Null).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "get timestamp failed", e)
+        })?;
 
-        if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return CommonError::new(&CommonDefaultErrorKind::NoData,  "PostgresConnection - get_current_time - not exists now return data").to_result();
+        if let PairValueEnum::Map(m) = ret {
+            if let Some(PairValueEnum::Array(data)) = m.get("unix_timestamp") {
+                if let PairValueEnum::BigInt(unix_data) = data[0] {
+                    Ok(std::time::Duration::from_millis(unix_data as u64))
+                }
+                else {
+                    CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,
+                                     "no unix_timestamp value, cols is not int").to_result()
+                }
+            }
+            else {
+                CommonError::new(&CommonDefaultErrorKind::NoData,
+                                 "no unix_timestamp value, unix_timestamp not exists").to_result()
+            }
         }
-
-        let data = match ret.cols_data[0][0] {
-            RelationalValue::BigInt(bi) => bi,
-            RelationalValue::Int(i) => i as i64,
-            _ => 0
-        };
-
-        Ok(std::time::Duration::from_millis(data as u64))
+        else {
+            CommonError::new(&CommonDefaultErrorKind::NoData,
+                             "no data").to_result()
+        }
     }
 
     fn run_execute_query(&mut self, query : &'_ str, param : Vec<&(dyn ToSql + Sync)>) -> Result<Vec<Row>, CommonError> {
@@ -101,56 +91,6 @@ impl PostgresConnection {
             Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
                                          format!("PostgresConnection, [query:{:.1024},dbErr:{}]", query, err.to_string())).to_result()
         }
-    }
-}
-
-impl RelationalExecutor<RelationalValue> for PostgresConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
-        let pg_param  = convert_common_value_to_pg_param(param)?;
-
-        let rows = self.run_execute_query(query, pg_param).map_err(|e| {
-            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "run_execute_query failed", e)
-        })?;;
-
-        let mut ret = RelationalExecuteResultSet::default();
-
-        if rows.len() <= 0 {
-            return Ok(ret);
-        }
-        let mut cols_t = Vec::with_capacity(rows[0].columns().len());
-
-        for col in rows[0].columns() {
-            cols_t.push(col.type_());
-            ret.cols_name.push(col.name().to_string());
-        }
-
-        for row in &rows {
-            let mut col_data = Vec::with_capacity(cols_t.len());
-
-            for col_idx in 0..cols_t.len() {
-                let d = match cols_t[col_idx] {
-                    &Type::BOOL => Ok(get_pg_data!(row, col_idx, bool, RelationalValue, Bool)),
-                    &Type::CHAR | &Type::VARCHAR | &Type::TEXT => Ok(get_pg_data!(row, col_idx, String, RelationalValue, String)),
-                    &Type::FLOAT4 | &Type::FLOAT8 | &Type::NUMERIC => Ok(get_pg_data!(row, col_idx, f64, RelationalValue, Double)),
-                    &Type::INT2 | &Type::INT4 =>Ok(get_pg_data!(row, col_idx, i32, RelationalValue, Int)),
-                    &Type::INT8 => Ok(get_pg_data!(row, col_idx, i64, RelationalValue, BigInt)),
-                    &Type::BYTEA => Ok(get_pg_data!(row, col_idx, Vec<u8>, RelationalValue, Bin)),
-                    _ => {
-                        CommonError::new(&CommonDefaultErrorKind::ParsingFail,  
-                                         format!("PostgresConnection - execute - not support this type({}), return NULL", cols_t[col_idx])).to_result()
-                    }
-                }?;
-
-                col_data.push(d);
-            }
-            ret.cols_data.push(col_data);
-        }
-
-        Ok(ret)
-    }
-
-    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
-        self.get_current_duration()
     }
 }
 

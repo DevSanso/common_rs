@@ -1,3 +1,3 @@
 [workspace]
-members = ["common_relational_exec","common_core", "common_err", "common_exec_scylla", "common_exec_pg", "common_exec_duckdb", "common_rs", "common_thread", "common_pair_exec"]
+members = ["common_core", "common_err", "common_exec_scylla", "common_exec_pg", "common_exec_duckdb", "common_rs", "common_thread", "common_pair_exec"]
 resolver = "2"

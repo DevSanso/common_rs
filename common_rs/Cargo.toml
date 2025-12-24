@@ -11,7 +11,6 @@ common_exec_duckdb = {path = "../common_exec_duckdb"}
 common_exec_pg = {path = "../common_exec_pg"}
 common_exec_scylla = {path = "../common_exec_scylla"}
 common_pair_exec = {path = "../common_pair_exec"}
-common_relational_exec = {path = "../common_relational_exec"}
 
 log = "0.4.22"
 ftail = "0.3.1"

@@ -10,8 +10,6 @@ use scylla::response::query_result::{QueryResult, QueryRowsResult};
 use scylla::statement::prepared::PreparedStatement;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
 use common_pair_exec::{PairExecutor, PairExecutorInfo, PairValueEnum};
-use common_relational_exec::{RelationalExecutorInfo, RelationalExecuteResultSet, RelationalExecutor, RelationalValue};
-use util::ScyllaFetcherRow;
 use crate::db_conn::util::ScyllaPairFetcherRow;
 
 pub struct ScyllaConnection {
@@ -86,91 +84,29 @@ impl ScyllaConnection {
     }
 
     fn get_current_duration(&mut self) -> Result<std::time::Duration, CommonError> {
-        let ret = self.execute("SELECT CAST(toUnixTimestamp(now()) AS BIGINT) AS unix_timestamp  FROM system.local", &[])?;
+        let ret = self.execute_pair("SELECT CAST(toUnixTimestamp(now()) AS BIGINT) AS unix_timestamp  FROM system.local", &PairValueEnum::Null).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "get timestamp failed", e)
+        })?;
 
-        if ret.cols_data.len() <= 0 && ret.cols_data[0].len() <= 0 {
-            return CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,  "ScyllaConnection.get_current_time").to_result();
-        }
-
-        let data = match ret.cols_data[0][0] {
-            RelationalValue::BigInt(bi) => bi,
-            RelationalValue::Int(i) => i as i64,
-            _ => 0
-        };
-
-        Ok(std::time::Duration::from_millis(data as u64))
-    }
-}
-impl RelationalExecutor<RelationalValue> for ScyllaConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
-        common_core::logger::trace!("ScyllaCommonSqlConnection - prepare query:{} param:{:?}", query, param);
-        
-        let prepare = self.get_prepare(query)?;
-
-        let mut result = RelationalExecuteResultSet::default();
-
-        let mut typ = Vec::new();
-        let cols_g = prepare.get_result_set_col_specs();
-        for col in cols_g.iter() {
-            result.cols_name.push(col.name().to_string());
-            typ.push(col.typ());
-        }
-
-        let real_param = param.iter().fold(Vec::<Option<&dyn SerializeValue>>::new(), |mut acc,x | {
-            let p : Option<&dyn SerializeValue> = match x {
-                RelationalValue::Int(i) => Some(i),
-                RelationalValue::Bin(bs) => Some(bs),
-                RelationalValue::Double(f) => Some(f),
-                RelationalValue::String(s) => Some(s),
-                RelationalValue::Bool(b) => Some(b),
-                RelationalValue::Null => None,
-                RelationalValue::BigInt(bi) => Some(bi),
-                RelationalValue::Float(f) => Some(f),
-            };
-            acc.push(p);
-            acc
-        });
-        
-        let query_result = self.execute_query(&prepare, real_param.as_slice())?;
-
-        if typ.len() <= 0 {
-            return Ok(result);
-        }
-
-        let rows = self.get_query_row_result(query_result)?;
-
-        let mut row_iter = match rows.rows::<ScyllaFetcherRow>() {
-            Ok(ok) => Ok(ok),
-            Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
-                                         format!("ScyllaConnection.execute - row_iter - {}", err)).to_result()
-        }?;
-
-        while let Some(r) = row_iter.next() {
-            let mut convert_row = match r {
-                Ok(ok) => Ok(ok),
-                Err(err) => CommonError::new(&CommonDefaultErrorKind::InvalidApiCall,
-                                             format!("ScyllaConnection.execute - convert_row - {}", err)).to_result()
-            }?;
-
-            let chk_err = convert_row.get_error();
-            if chk_err.is_err() {
-                return CommonError::extend(&CommonDefaultErrorKind::InvalidApiCall, "row read fail", chk_err.err().unwrap()).to_result()
+        if let PairValueEnum::Map(m) = ret {
+            if let Some(PairValueEnum::Array(data)) = m.get("unix_timestamp") {
+                if let PairValueEnum::BigInt(unix_data) = data[0] {
+                    Ok(std::time::Duration::from_millis(unix_data as u64))
+                }
+                else {
+                    CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,
+                                     "no unix_timestamp value, cols is not int").to_result()
+                }
             }
-            let col_data = convert_row.clone_col();
-
-            if col_data.len() != result.cols_name.len() {
-                return CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,
-                                        format!("ScyllaConnection.execute - col_data - data len : {} != col count : {}", col_data.len(), result.cols_name.len())).to_result()
+            else {
+                CommonError::new(&CommonDefaultErrorKind::NoData,
+                                 "no unix_timestamp value, unix_timestamp not exists").to_result()
             }
-
-            result.cols_data.push(col_data);
         }
-
-        Ok(result)
-    }
-
-    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
-        self.get_current_duration()
+        else {
+            CommonError::new(&CommonDefaultErrorKind::NoData,
+                             "no data").to_result()
+        }
     }
 }
 

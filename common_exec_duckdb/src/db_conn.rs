@@ -3,7 +3,6 @@ use std::time::Duration;
 use duckdb;
 use duckdb::types::ToSql;
 use duckdb::arrow::datatypes::DataType;
-use common_relational_exec::{RelationalExecutor, RelationalValue, RelationalExecuteResultSet, RelationalExecutorInfo};
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
 use common_pair_exec::{PairExecutor, PairValueEnum};
 
@@ -43,22 +42,6 @@ macro_rules! get_row_data {
     };
 }
 
-fn convert_common_value_to_duckdb_param(param : &'_ [RelationalValue]) -> Result<Vec<&dyn ToSql>, CommonError> {
-    param.iter().map(| x | {
-        let convert: Result<&dyn ToSql, CommonError> = match x {
-            RelationalValue::BigInt(i) => Ok(i),
-            RelationalValue::Int(i) => Ok(i),
-            RelationalValue::Null => Ok(&Option::<i64>::None),
-            RelationalValue::Double(f) => Ok(f),
-            RelationalValue::Bin(v) => Ok(v),
-            RelationalValue::String(t) => Ok(t),
-            _ => CommonError::new(&CommonDefaultErrorKind::NoSupport, format!("not support type({:?}), return null", x)).to_result()
-
-        };
-        convert
-    }).collect::<Result<Vec<&dyn ToSql>, CommonError>>()
-}
-
 fn convert_pair_value_to_duckdb_param(param : &'_ [PairValueEnum]) -> Result<Vec<&dyn ToSql>, CommonError> {
     param.iter().map(| x | {
         let convert: Result<&dyn ToSql, CommonError> = match x {
@@ -91,13 +74,29 @@ impl DuckDBConnection {
     }
 
     fn get_current_duration(&mut self) -> Result<std::time::Duration, CommonError> {
-        let data : i64 = self.client.query_row(
-            "SELECT (epoch(now()) * 1000)::BIGINT AS unix_ms", [], |r| r.get(0))
-            .map_err(|x| {
-                CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("Cannot get current time: {}", x.to_string()))
-            })?;
+        let ret = self.execute_pair("SELECT (epoch(now()) * 1000)::BIGINT AS unix_ms", &PairValueEnum::Null).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "get timestamp failed", e)
+        })?;
 
-        Ok(std::time::Duration::from_millis(data as u64))
+        if let PairValueEnum::Map(m) = ret {
+            if let Some(PairValueEnum::Array(data)) = m.get("unix_ms") {
+                if let PairValueEnum::BigInt(unix_data) = data[0] {
+                    Ok(std::time::Duration::from_millis(unix_data as u64))
+                }
+                else {
+                    CommonError::new(&CommonDefaultErrorKind::NotMatchArgs,
+                                     "no unix_ms value, cols is not int").to_result()
+                }
+            }
+            else {
+                CommonError::new(&CommonDefaultErrorKind::NoData,
+                                 "no unix_timestamp value, unix_ms not exists").to_result()
+            }
+        }
+        else {
+            CommonError::new(&CommonDefaultErrorKind::NoData,
+                             "no data").to_result()
+        }
     }
 
     fn run_query_query(mut prepare : duckdb::Statement, duck_param : Vec<&'_ dyn ToSql>) -> Result<PairValueEnum, CommonError> {
@@ -160,59 +159,6 @@ impl DuckDBConnection {
             Ok(PairValueEnum::Map(convert_m))
         }
     }
-}
-
-impl RelationalExecutor<RelationalValue> for DuckDBConnection {
-    fn execute(&mut self, query : &'_ str, param : &'_ [RelationalValue]) -> Result<RelationalExecuteResultSet, CommonError> {
-        let mut prepare = self.client.prepare(query).map_err(|x| {
-            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection - execute - {}", x.to_string()))
-        })?;
-
-        let duck_param  = convert_common_value_to_duckdb_param(param)?;
-
-        let mut ret = RelationalExecuteResultSet::default();
-
-        let col_count = prepare.column_count();
-        let schema = prepare.schema();
-
-        ret.cols_name = prepare.column_names();
-        ret.cols_data = Vec::with_capacity(10);
-
-        let mut rows = prepare.query(duck_param.as_slice()).map_err(|x| {
-            CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, format!("DuckDBConnection - execute,query - {}", x.to_string()))
-        })?;
-
-        loop  {
-            let row = rows.next();
-            if row.is_err() {
-                let e = row.err().unwrap();
-                return CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, 
-                                        format!("DuckDBConnection - execute,next - {}", e.to_string())).to_result()
-            }
-
-            let r = row.unwrap();
-            if r.is_none() {break;}
-
-            let mut common_row = Vec::new();
-
-            let r_data = r.unwrap();
-
-            for idx in 0..col_count {
-                let data = get_row_data!(schema, idx, r_data, RelationalValue)?;
-
-                common_row.push(data);
-            }
-
-            ret.cols_data.push(common_row);
-        }
-
-        Ok(ret)
-    }
-
-    fn get_current_time(&mut self) -> Result<std::time::Duration, CommonError> {
-        self.get_current_duration()
-    }
-    
 }
 
 impl PairExecutor for DuckDBConnection {
