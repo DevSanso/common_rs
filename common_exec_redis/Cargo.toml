@@ -1,0 +1,21 @@
+[package]
+name = "common_exec_redis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common_core = {path = "../common_core"}
+common_pair_exec = {path = "../common_pair_exec"}
+common_err = {path = "../common_err"}
+redis = "1.0.1"
+
+
+[dev-dependencies]
+common_pair_exec = {path = "../common_pair_exec"}
+common_core = {path = "../common_core"}
+common_exec_redis = {path = "../common_exec_redis"}
+toml = "0.8.19"
+
+[[test]]
+name = "test_scylla"
+path = "tests/tests_pair.rs"
