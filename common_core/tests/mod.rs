@@ -11,13 +11,13 @@ mod pool_tests {
     pub fn test_pool_arc() -> Result<(), CommonError> {
         use std::sync::Arc;
 
-        let p :Arc<dyn ThreadSafePool<(), ()>> = get_thread_safe_pool(String::from("test"),Box::new(|_x : ()| {
-            return Ok(())
+        let p :Arc<dyn ThreadSafePool<i32, ()>> = get_thread_safe_pool(String::from("test"),Box::new(|_x : ()| {
+            return Ok(123)
         }),5);
 
         {
 
-            let _: Result<Box<dyn PoolItem<()>>, CommonError> = p.get_owned(());
+            let _: Result<Box<dyn PoolItem<i32>>, CommonError> = p.get_owned(());
         }
         
         assert_eq!(1, p.alloc_size());

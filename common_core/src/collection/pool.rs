@@ -5,8 +5,8 @@ use common_err::CommonError;
 
 pub trait PoolItem<T> {
     fn get_value<'b>(&'b mut self) -> &'b mut T;
-    fn dispose(&mut self);
-    fn restoration(&mut self);
+    fn dispose(self: Box<Self>);
+    fn restoration(self: Box<Self>);
 }
 pub trait ThreadSafePool<T,P>  : Send + Sync  where T : 'static, P: 'static {
     fn get_owned(&self, param : P) -> Result<Box<dyn PoolItem<T>>, CommonError>;

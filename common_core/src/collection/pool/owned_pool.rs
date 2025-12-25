@@ -29,6 +29,16 @@ impl<T> PoolItemOwned<T> {
             command
         }
     }
+
+    fn drop_restoration(&mut self) {
+        let used = self.is_use.load(Ordering::Relaxed);
+        self.is_use.store(false, Ordering::Relaxed);
+
+        if used {
+            let val = self.value.take();
+            self.command.restoration(val.unwrap());
+        }
+    }
 }
 
 impl<T> PoolItem<T> for PoolItemOwned<T> {
@@ -37,7 +47,7 @@ impl<T> PoolItem<T> for PoolItemOwned<T> {
         r
     }
 
-    fn dispose(&mut self) {
+    fn dispose(mut self : Box<Self>) {
         let used = self.is_use.load(Ordering::Relaxed);
         self.is_use.store(false, Ordering::Relaxed);
 
@@ -47,7 +57,7 @@ impl<T> PoolItem<T> for PoolItemOwned<T> {
         }
     }
 
-    fn restoration(&mut self) {
+    fn restoration(mut self: Box<Self>) {
         let used = self.is_use.load(Ordering::Relaxed);
         self.is_use.store(false, Ordering::Relaxed);
 
@@ -61,7 +71,7 @@ impl<T> PoolItem<T> for PoolItemOwned<T> {
 impl<T> Drop for PoolItemOwned<T> {
     fn drop(&mut self) {
         if self.is_use.load(Ordering::Relaxed) == true {
-            self.restoration()
+            self.drop_restoration()
         }
     }
 }
