@@ -73,10 +73,12 @@ fn test_connect_select_large() -> Result<(), CommonError> {
 
 
     }
-
+    let timer = std::time::SystemTime::now();
     let array_ret = conn.execute_pair("mget", &PairValueEnum::Array(
         (0..5000).fold(vec![], |mut acc, i| { acc.push(PairValueEnum::BigInt(i));acc})
     ))?;
+    let elap = timer.elapsed().unwrap();
+    println!("##ELAPSED: {:?}", elap);
 
     if let PairValueEnum::Map(m) = array_ret {
         if let Some(PairValueEnum::Array(a)) = m.get("0") {
@@ -94,6 +96,56 @@ fn test_connect_select_large() -> Result<(), CommonError> {
             PairValueEnum::BigInt(i as i64)
         ]))?;
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_connect_select_list() -> Result<(), CommonError> {
+    let p = connect_redis_db()?;
+    let mut item = p.get_owned(())?;
+    let conn = item.get_value();
+
+    for i in 0..5000 {
+
+    }
+
+    let test_key = PairValueEnum::String("list_testing".to_string());
+
+    conn.execute_pair("del", &PairValueEnum::Array(vec![
+        test_key.clone()
+    ]))?;
+
+    for i in 0..5000 {
+        let value = generate_random_string(100);
+        conn.execute_pair("lpush", &PairValueEnum::Array(vec![
+            test_key.clone(), PairValueEnum::String(value)
+        ]))?;
+
+
+    }
+    let timer = std::time::SystemTime::now();
+    let array_ret = conn.execute_pair("lrange", &PairValueEnum::Array(
+        vec![test_key.clone(), PairValueEnum::BigInt(0), PairValueEnum::BigInt(5000)]
+    ))?;
+
+    let elap = timer.elapsed().unwrap();
+    println!("##ELAPSED: {:?}", elap);
+
+    if let PairValueEnum::Map(m) = array_ret {
+        if let Some(PairValueEnum::Array(a)) = m.get("0") {
+            assert_eq!(a.len(), 5000);
+        }
+        else {
+            assert!(false);
+        }
+    } else {
+        assert!(false);
+    }
+
+    conn.execute_pair("del", &PairValueEnum::Array(vec![
+        test_key.clone()
+    ]))?;
 
     Ok(())
 }
