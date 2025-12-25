@@ -116,6 +116,9 @@ impl PairExecutor for PostgresConnection {
         }
 
         let row_len = rows.len();
+        if row_len <= 0 {
+            return Ok(PairValueEnum::Null);
+        }
         let mut map = HashMap::new();
 
         let cols = rows[0].columns();

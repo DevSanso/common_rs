@@ -200,10 +200,12 @@ impl PairExecutor for ScyllaConnection {
 
         let mut ret = PairValueEnum::Null;
         let mut convert_m = HashMap::new();
-        for item in cache {
-            convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
+        if cache.len() > 0 {
+            for item in cache {
+                convert_m.insert(item.0.to_string(), PairValueEnum::Array(item.1));
+            }
+            ret = PairValueEnum::Map(convert_m);
         }
-        ret = PairValueEnum::Map(convert_m);
         Ok(ret)
     }
 
