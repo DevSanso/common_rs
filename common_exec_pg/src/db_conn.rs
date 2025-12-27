@@ -60,7 +60,7 @@ impl PostgresConnection {
         })
     }
     fn get_current_duration(&mut self) -> Result<std::time::Duration, CommonError> {
-        let ret = self.execute_pair("SELECT EXTRACT(EPOCH FROM NOW())::bigint * 1000 AS unix_timestamp", &PairValueEnum::Null).map_err(|e| {
+        let ret = self.execute_pair("SELECT EXTRACT(EPOCH FROM clock_timestamp())::bigint * 1000 AS unix_timestamp", &PairValueEnum::Null).map_err(|e| {
             CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "get timestamp failed", e)
         })?;
 
