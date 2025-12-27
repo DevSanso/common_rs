@@ -20,12 +20,12 @@ fn convert_str_to_log_level(log_level : &'_ str) -> LevelFilter {
 static LOGGER_INIT_ONCE : Once = Once::new();
 pub(crate) static mut LOGGER_FILE_LEVEL_IS_TRACE : bool = false;
 
-pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), Box<dyn Error>> {
-    let mut ret : Result<(), Box<dyn Error>> = Ok(());
+pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>, max_size : u64) -> Result<(), CommonError> {
+    let mut ret : Result<(), CommonError> = Ok(());
 
     LOGGER_INIT_ONCE.call_once(|| {
         let level = convert_str_to_log_level(log_level);
-        let mut ftail = Ftail::new().datetime_format("%Y-%m-%d %H:%M:%S%.3f");
+        let mut ftail = Ftail::new().datetime_format("%Y-%m-%d %H:%M:%S%.3f").max_file_size(max_size);
 
         if level == LevelFilter::Trace {
             ftail = ftail.console(LevelFilter::Trace);
@@ -38,10 +38,12 @@ pub fn init_once(log_level : &'_ str, log_file : Option<&'_ str>) -> Result<(), 
             {
                 let chk_write = std::fs::OpenOptions::new()
                     .write(true)
+                    .create(true)
+                    .append(true)
                     .open(file_path.trim().to_string());
 
                 if chk_write.is_err() {
-                    ret = CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("common_rs - logger,init,chk - {}", chk_write.err().unwrap()))
+                    ret = CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("common_rs - logger,init,chk - {}:{}", file_path, chk_write.err().unwrap()))
                         .to_result();
                     return;
                 }
