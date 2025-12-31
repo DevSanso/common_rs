@@ -12,6 +12,7 @@ use common_err::gen::CommonDefaultErrorKind;
 use logforth;
 use logforth::append::file::FileBuilder;
 use logforth::starter_log::LogStarterBuilder;
+use logforth::layout::TextLayout;
 
 fn convert_str_to_log_level(log_level : &'_ str) -> Level {
     match log_level {
@@ -50,6 +51,7 @@ fn set_log_builder(level: Level, base_dir_opt : Option<&'_ str>, max_size : usiz
             let file = FileBuilder::new(base_dir, LOG_LEVEL_FILE_NAME[dispatch_idx])
                 .rollover_size(NonZeroUsize::new(max_size).expect("NonZeroUsize New is Broken"))
                 .max_log_files(NonZeroUsize::new(5).expect("NonZeroUsize New is Broken"))
+                .layout(TextLayout::default().no_color())
                 .build()
                 .map_err(|e| {
                     CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, e.to_string())

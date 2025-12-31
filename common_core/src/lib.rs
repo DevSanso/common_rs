@@ -70,11 +70,9 @@ pub mod logger {
             {
                 let caller = std::panic::Location::caller();
                 let func = $crate::utils::macros::func!();
-                let line = caller.line();
-                let file = caller.file();
                 let thread_id = std::thread::current().id();
 
-                $crate::logger::log::info!("{:?} at {}:{}:{}\n{:.1024}", thread_id, file, line, func, format!($($arg)*));
+                $crate::logger::log::info!("{:?} at {}\n{:.1024}", thread_id, func, format!($($arg)*));
             }
         };
     }
