@@ -45,7 +45,7 @@ fn set_log_builder(level: Level, base_dir_opt : Option<&'_ str>, max_size : usiz
     let mut dispatch = builder;
     let max_idx = LOG_LEVEL_THRESHOLD.iter().position(|l| *l == level).map_or(0, |i| i);
 
-    for dispatch_idx in 0..max_idx {
+    for dispatch_idx in 0..max_idx + 1 {
         if let Some(base_dir) = base_dir_opt.as_ref() {
             let file = FileBuilder::new(base_dir, LOG_LEVEL_FILE_NAME[dispatch_idx])
                 .rollover_size(NonZeroUsize::new(max_size).expect("NonZeroUsize New is Broken"))
