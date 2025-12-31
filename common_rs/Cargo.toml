@@ -13,7 +13,6 @@ common_exec_scylla = {path = "../common_exec_scylla"}
 common_exec_redis = {path = "../common_exec_redis"}
 common_pair_exec = {path = "../common_pair_exec"}
 
-log = "0.4.22"
 logforth = { version = "0.29.1", features = ["starter-log"] }
 libc = "0.2.174"
 

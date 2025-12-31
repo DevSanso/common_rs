@@ -24,10 +24,5 @@ pub mod signal {
     }
 }
 pub mod logger {
-    use log;
-
-    pub use log::debug as log_debug;
-    pub use log::info as log_info;
-    pub use log::warn as log_warn;
-    pub use log::error as log_error;
+    pub use crate::c_core::logger::*;
 }
