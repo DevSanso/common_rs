@@ -78,7 +78,11 @@ pub fn init_once(log_level : &'_ str, log_dir : Option<&'_ str>, max_size : usiz
         if !std::fs::exists(log_dir_path).map_err(|e| {
             CommonError::new(&CommonDefaultErrorKind::SystemCallFail, e.to_string())
         })? {
-            return CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("not exists dir {}", log_dir_path)).to_result();
+            std::fs::create_dir_all(log_dir_path).map_err(|e| {
+                CommonError::new(&CommonDefaultErrorKind::SystemCallFail, e.to_string())
+            })?;
+
+            println!("Created log directory: {}", log_dir_path);
         }
     }
 
