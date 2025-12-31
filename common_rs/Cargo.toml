@@ -18,3 +18,6 @@ libc = "0.2.174"
 
 [features]
 use_custom_common_err = ["common_err/file"]
+
+[lib]
+crate-type = ["dylib"]
