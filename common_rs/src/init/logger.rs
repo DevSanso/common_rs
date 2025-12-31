@@ -56,13 +56,13 @@ fn set_log_builder(level: Level, base_dir_opt : Option<&'_ str>, max_size : usiz
                 })?;
 
             dispatch = dispatch.dispatch(|d| {
-                d.filter(LevelFilter::MoreSevereEqual(LOG_LEVEL_THRESHOLD[dispatch_idx]))
+                d.filter(LevelFilter::Equal(LOG_LEVEL_THRESHOLD[dispatch_idx]))
                     .append(file)
             });
         } else {
             let stdout = append::Stdout::default();
             dispatch = dispatch.dispatch(|d| {
-                d.filter(LevelFilter::MoreSevereEqual(LOG_LEVEL_THRESHOLD[dispatch_idx]))
+                d.filter(LevelFilter::Equal(LOG_LEVEL_THRESHOLD[dispatch_idx]))
                     .append(stdout)
             });
         }
