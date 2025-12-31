@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::thread;
 
-use common_core::logger;
 use common_err::{CommonError, gen::CommonDefaultErrorKind};
 
 use crate::simple::ThreadFn;
@@ -63,10 +62,8 @@ impl <T : 'static + Send> SimpleThreadManager<T> for InstantThreadManager<T> {
             .name(name.clone())
             .spawn(move || {
                 clone_state.add_current();
-                logger::debug!( "Thread pool started with {} threads", name );
                 f(arg);
                 clone_state.sub_current();
-                logger::debug!( "Thread pool ended {}", name );
             }).map_err(|e|{
             CommonError::new(&CommonDefaultErrorKind::SystemCallFail,format!("ThreadPool - spawn - {}", e.to_string()))
         })?;

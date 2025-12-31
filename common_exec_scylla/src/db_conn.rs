@@ -140,8 +140,6 @@ impl PairExecutor for ScyllaConnection {
             CommonError::new(&CommonDefaultErrorKind::InvalidApiCall, "not array type").to_result()
         }?;
         
-        
-        common_core::logger::trace!("ScyllaCommonSqlConnection - execute_pair query:{} param:{:?}", query, param);
         let prepare = self.get_prepare(query)?;
 
         let query_result = self.execute_query(&prepare, execute_param.as_slice())?;
