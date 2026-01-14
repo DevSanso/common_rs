@@ -27,7 +27,8 @@ pub struct PairExecutorInfo {
     pub name : String,
     pub user : String,
     pub password : String,
-    pub timeout_sec : u32
+    pub timeout_sec : u32,
+    pub extend : Option<Vec<String>>
 }
 
 impl Display for PairValueEnum {

@@ -16,6 +16,7 @@ fn connect_duckdb_db() -> Result<common_pair_exec::PairExecutorPool, CommonError
         user: "".to_string(),
         password: "".to_string(),
         timeout_sec: 3600,
+        extend: None
     };
 
     let p = create_duckdb_pair_conn_pool("test".to_string(), info, 5);
