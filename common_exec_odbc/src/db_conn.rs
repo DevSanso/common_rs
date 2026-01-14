@@ -6,12 +6,14 @@ use common_err::CommonError;
 use common_pair_exec::{PairExecutor, PairValueEnum};
 use odbc_sys::*;
 use common_err::gen::CommonDefaultErrorKind;
+use common_pair_exec::PairValueEnum::Null;
 
 pub struct OdbcConnection {
     env_h : Handle,
     conn_h : Handle,
 
-    current_time_query : String
+    current_time_query : String,
+    current_time_col_name : String
 }
 
 unsafe fn get_odbc_diagnostics(handle_type: HandleType, handle: Handle) -> String {
@@ -78,6 +80,7 @@ impl ODBCStmt {
             SqlDataType::FLOAT => Ok(CDataType::Float),
             SqlDataType::DECIMAL => Ok(CDataType::Double),
             SqlDataType::NUMERIC => Ok(CDataType::Double),
+            SqlDataType::EXT_BIG_INT => Ok(CDataType::SBigInt),
             _ => {
                 CommonError::new(&CommonDefaultErrorKind::NoSupport, format!("not support {:?}", *sql_t)).to_result()
             }
@@ -227,6 +230,7 @@ impl ODBCStmt {
                 let mut int_buffer : libc::c_int = 0;
                 let mut double_buffer : libc::c_double = 0.0;
                 let mut float_buffer : libc::c_float = 0.0;
+                let mut bigint_buffer : libc::c_longlong = 0;
                 let mut string_buffer : Vec<libc::c_char> = vec![0; cols[idx].2];
 
                 let buffer_ptr = match ctype {
@@ -241,7 +245,10 @@ impl ODBCStmt {
                     },
                     CDataType::Char => {
                         Ok(string_buffer.as_mut_ptr()  as Pointer)
-                    }
+                    },
+                    CDataType::SBigInt => {
+                        Ok((&mut bigint_buffer as *mut libc::c_longlong) as Pointer)
+                    },
                     _ => {
                         CommonError::new(&CommonDefaultErrorKind::Etc, format!("not support {:?}", ctype)).to_result()
                     }
@@ -281,6 +288,11 @@ impl ODBCStmt {
                                 .expect(format!("broken col data name {}", &cols[idx].0).as_str())
                                 .push(PairValueEnum::Double(double_buffer));
                         },
+                        CDataType::SBigInt => {
+                            col_buffer.get_mut(&cols[idx].0)
+                                .expect(format!("broken col data name {}", &cols[idx].0).as_str())
+                                .push(PairValueEnum::BigInt(bigint_buffer));
+                        },
                         CDataType::Char => {
                             let s = String::from_utf8(
                                 string_buffer.iter().map(|&c| c as u8).collect::<Vec<u8>>()).map_err(|e| {
@@ -316,7 +328,7 @@ impl Drop for ODBCStmt {
 
 impl OdbcConnection {
 
-    pub fn new(data_source : String, current_time_query : String) -> Result<Self, CommonError> {
+    pub fn new(data_source : String, current_time_query : String, current_time_col_name : String) -> Result<Self, CommonError> {
         let mut env_h: Handle = Handle::null();
         let mut conn_h : Handle = Handle::null();
 
@@ -356,7 +368,8 @@ impl OdbcConnection {
         Ok(OdbcConnection {
             env_h,
             conn_h,
-            current_time_query
+            current_time_query,
+            current_time_col_name
         })
     }
 }
@@ -398,6 +411,26 @@ impl PairExecutor for OdbcConnection {
     }
 
     fn get_current_time(&mut self) -> Result<Duration, CommonError> {
-        todo!()
+        let query = self.current_time_query.clone();
+        let ret = self.execute_pair(query.as_str(), &Null).map_err(|e| {
+            CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "", e)
+        })?;
+
+        match ret {
+            PairValueEnum::Null => {
+                CommonError::new(&CommonDefaultErrorKind::NoData, "get current time is null").to_result()
+            },
+            PairValueEnum::Map(m) => {
+                let pair = m.get(&self.current_time_col_name);
+                if let Some(PairValueEnum::BigInt(d)) = pair {
+                    Ok(Duration::from_millis(*d as u64))
+                } else {
+                    CommonError::new(&CommonDefaultErrorKind::Etc, "get data failed").to_result()
+                }
+            },
+            _ => CommonError::new(&CommonDefaultErrorKind::NoData, "not support data type").to_result()
+        }
+
+
     }
 }
