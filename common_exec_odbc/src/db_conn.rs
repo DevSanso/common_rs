@@ -126,7 +126,7 @@ impl ODBCStmt {
                 ptr::null_mut(),
             );
 
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let error_str = get_odbc_diagnostics(HandleType::Stmt, stmt_h.clone());
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, error_str).to_result();
             }
@@ -147,7 +147,7 @@ impl ODBCStmt {
             let mut dummy1 : SmallInt = 0;
             let mut dummy2 : Nullability = Nullability::NULLABLE;
             let ret = SQLDescribeCol(stmt,
-                           idx as USmallInt,
+                           idx as USmallInt + 1,
                            col_name.as_mut_ptr(),
                            255,
                            &mut col_name_length as *mut SmallInt,
@@ -158,7 +158,7 @@ impl ODBCStmt {
 
             );
 
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let error_str = get_odbc_diagnostics(HandleType::Stmt, stmt_h.clone());
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, error_str).to_result();
             }
@@ -183,14 +183,14 @@ impl ODBCStmt {
 
         let ret = SQLExecDirect(real_stmt, query.as_ptr(), NTS as Integer);
 
-        if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+        if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
             let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
             return CommonError::new(&CommonDefaultErrorKind::ExecuteFail, error_str).to_result();
         }
-        let cols_count = 0 as SmallInt;
-        let ret = SQLNumResultCols(real_stmt, cols_count as *mut SmallInt);
+        let mut cols_count = 0 as SmallInt;
+        let ret = SQLNumResultCols(real_stmt, &mut cols_count as *mut SmallInt);
 
-        if  ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+        if  ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
             let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
             return CommonError::new(&CommonDefaultErrorKind::ExecuteFail, error_str).to_result();
         }
@@ -216,7 +216,7 @@ impl ODBCStmt {
                 break;
             }
 
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
                 return CommonError::new(&CommonDefaultErrorKind::FetchFailed, error_str).to_result();
             }
@@ -262,7 +262,7 @@ impl ODBCStmt {
                     cols[idx].2 as Len,
                     &mut is_chk_null_len as *mut Len);
 
-                if data_ret != SqlReturn::SUCCESS || data_ret != SqlReturn::SUCCESS_WITH_INFO {
+                if data_ret != SqlReturn::SUCCESS && data_ret != SqlReturn::SUCCESS_WITH_INFO {
                     let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
                     return CommonError::new(&CommonDefaultErrorKind::FetchFailed, error_str).to_result();
                 }
@@ -334,18 +334,18 @@ impl OdbcConnection {
 
         unsafe {
             let ret = SQLAllocHandle(HandleType::Env, Handle::null(), &mut env_h);
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, "odbc get failed env handle").to_result();
             }
 
             let ret = SQLSetEnvAttr(env_h.clone().as_henv(), EnvironmentAttribute::OdbcVersion, Pointer::from(AttrOdbcVersion::Odbc3), Integer::default());
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let _ = SQLFreeHandle(HandleType::Env, env_h);
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, "odbc set failed odbc version").to_result();
             }
 
             let ret = SQLAllocHandle(HandleType::Dbc, env_h.clone(), &mut conn_h);
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let _ = SQLFreeHandle(HandleType::Env, env_h);
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, "odbc get failed dbc handle").to_result();
             }
@@ -358,7 +358,7 @@ impl OdbcConnection {
                                        ptr::null_mut(),
                                        DriverConnectOption::NoPrompt);
 
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 let error_str = get_odbc_diagnostics(HandleType::Dbc, conn_h.clone());
                 let _ = SQLFreeHandle(HandleType::Dbc, conn_h);
                 let _ = SQLFreeHandle(HandleType::Env, env_h);
@@ -390,7 +390,7 @@ impl PairExecutor for OdbcConnection {
             let mut stmt : Handle = Handle::null();
 
             let ret = SQLAllocHandle(HandleType::Stmt, self.conn_h.clone(), &mut stmt);
-            if ret != SqlReturn::SUCCESS || ret != SqlReturn::SUCCESS_WITH_INFO {
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, "STMT ALLOC FAILED").to_result();
             }
 
@@ -430,7 +430,5 @@ impl PairExecutor for OdbcConnection {
             },
             _ => CommonError::new(&CommonDefaultErrorKind::NoData, "not support data type").to_result()
         }
-
-
     }
 }
