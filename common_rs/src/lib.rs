@@ -12,6 +12,7 @@ pub mod exec {
     pub use common_exec_scylla as scylla;
     pub use common_exec_pg as pg;
     pub use common_exec_redis as redis;
+    pub use common_exec_odbc as odbc;
 }
 pub mod signal {
     pub use crate::init::signal::SIGABRT;
