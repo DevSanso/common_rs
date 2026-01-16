@@ -20,4 +20,4 @@ libc = "0.2.174"
 use_custom_common_err = ["common_err/file"]
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib"]

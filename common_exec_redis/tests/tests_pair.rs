@@ -16,6 +16,7 @@ fn connect_redis_db() -> Result<common_pair_exec::PairExecutorPool, CommonError>
         user: read_toml["user"].clone(),
         password: read_toml["password"].clone(),
         timeout_sec: 3600,
+        extend: None
     };
 
     let p = create_redis_pair_conn_pool("test".to_string(), info, 5);
