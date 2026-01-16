@@ -61,25 +61,22 @@ unsafe fn get_odbc_diagnostics(handle_type: HandleType, handle: Handle) -> Strin
 
     string_buffer
 }
-struct ODBCStmt {
-    stmt_h : Handle
+struct ODBCStmt{
+    stmt_h : HStmt
 }
 
-impl ODBCStmt {
-    fn new(stmt_h : Handle) -> ODBCStmt {
+impl ODBCStmt{
+    fn new(stmt_h : HStmt) -> ODBCStmt {
         ODBCStmt {
             stmt_h
         }
     }
     fn cast_sql_type_to_ctype(sql_t : &SqlDataType) -> Result<CDataType, CommonError> {
         match *sql_t {
-            SqlDataType::DOUBLE => Ok(CDataType::Double),
-            SqlDataType::CHAR => Ok(CDataType::Char),
-            SqlDataType::INTEGER => Ok(CDataType::SLong),
-            SqlDataType::SMALLINT => Ok(CDataType::SLong),
+            SqlDataType::DOUBLE | SqlDataType::DECIMAL | SqlDataType::NUMERIC => Ok(CDataType::Double),
+            SqlDataType::CHAR | SqlDataType::VARCHAR | SqlDataType::EXT_LONG_VARCHAR => Ok(CDataType::Char),
+            SqlDataType::INTEGER | SqlDataType::SMALLINT => Ok(CDataType::SLong),
             SqlDataType::FLOAT => Ok(CDataType::Float),
-            SqlDataType::DECIMAL => Ok(CDataType::Double),
-            SqlDataType::NUMERIC => Ok(CDataType::Double),
             SqlDataType::EXT_BIG_INT => Ok(CDataType::SBigInt),
             _ => {
                 CommonError::new(&CommonDefaultErrorKind::NoSupport, format!("not support {:?}", *sql_t)).to_result()
@@ -87,7 +84,9 @@ impl ODBCStmt {
         }
     }
     #[inline]
-    unsafe fn bind_stmt(stmt_h : Handle, param : &'_ [&'_ PairValueEnum]) -> Result<(), CommonError> {
+    unsafe fn get_bind_stmt_meta_data(param : &'_ [&'_ PairValueEnum]) -> Result<Vec<(CDataType, SqlDataType, isize, i32, *mut c_void)>, CommonError> {
+        let mut v = Vec::with_capacity(param.len());
+
         for idx in 0..param.len() {
             let bind_data = match param[idx] {
                 PairValueEnum::Double(d) => {
@@ -106,37 +105,19 @@ impl ODBCStmt {
                     (CDataType::Float, SqlDataType::FLOAT,  0, 5, f as *const f32 as *mut c_void)
                 }
                 PairValueEnum::Null => {
-                    (CDataType::Char, SqlDataType::VARCHAR, NTS, 0,"\0".as_ptr() as *mut c_void )
+                    (CDataType::Char, SqlDataType::VARCHAR, NULL_DATA, 0, 0 as *mut c_void )
                 }
                 _ => {
                     return CommonError::new(&CommonDefaultErrorKind::NoSupport, format!("not support : {:?}", param[idx])).to_result()
                 }
             };
-
-            let ret = SQLBindParameter(
-                stmt_h.clone().as_hstmt(),
-                (idx + 1) as USmallInt,
-                ParamType::Input,
-                bind_data.0,
-                bind_data.1,
-                bind_data.2 as ULen,
-                bind_data.3,
-                bind_data.4,
-                0,
-                ptr::null_mut(),
-            );
-
-            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
-                let error_str = get_odbc_diagnostics(HandleType::Stmt, stmt_h.clone());
-                return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, error_str).to_result();
-            }
+            v.push(bind_data);
         }
 
-        Ok(())
+        Ok(v)
     }
 
-    unsafe fn get_cols_meta_data(stmt_h : Handle, count : usize) -> Result<Vec<(String, SqlDataType, usize)>, CommonError> {
-        let stmt = stmt_h.as_hstmt();
+    unsafe fn get_cols_meta_data(stmt_h : &'_ HStmt, count : usize) -> Result<Vec<(String, SqlDataType, usize)>, CommonError> {
         let mut v = Vec::with_capacity(count);
 
         for idx in 0..count {
@@ -146,7 +127,7 @@ impl ODBCStmt {
             let mut data_type = SqlDataType::INTEGER;
             let mut dummy1 : SmallInt = 0;
             let mut dummy2 : Nullability = Nullability::NULLABLE;
-            let ret = SQLDescribeCol(stmt,
+            let ret = SQLDescribeCol(*stmt_h,
                            idx as USmallInt + 1,
                            col_name.as_mut_ptr(),
                            255,
@@ -159,39 +140,66 @@ impl ODBCStmt {
             );
 
             if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
-                let error_str = get_odbc_diagnostics(HandleType::Stmt, stmt_h.clone());
+                let error_str = get_odbc_diagnostics(HandleType::Stmt, stmt_h.as_handle());
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, error_str).to_result();
             }
-            let s = String::from_raw_parts(col_name.as_mut_ptr() as *mut u8, col_name_length as usize, 1);
-            v.push((s,data_type, col_len as usize));
+
+            let convert_arr = col_name.iter().take(col_name_length as usize).fold(Vec::with_capacity(col_name_length as usize), |mut acc,x| {
+                acc.push(*x as u8);
+                acc
+            });
+            let cloned = String::from_utf8_lossy(convert_arr.as_slice()).to_string();
+
+            v.push((cloned, data_type, col_len as usize));
         }
 
         Ok(v)
     }
 
     unsafe fn execute(&mut self, query : &'_ str, param : Option<&'_ [PairValueEnum]>) -> Result<PairValueEnum, CommonError> {
-        if param.is_some() {
+        let mut binds = if param.is_some() {
             let p_ref : Vec<&PairValueEnum> = param.unwrap().iter().map(|p| p).collect();
-            Self::bind_stmt(self.stmt_h.clone(), p_ref.as_slice()).map_err(|e| {
+
+            Self::get_bind_stmt_meta_data(p_ref.as_slice()).map_err(|e| {
                 CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "bind failed", e)
-            })?;
+            })?
+        } else {
+            Vec::new()
+        };
+
+        for bind_idx in 0..binds.len() {
+            let ret = SQLBindParameter(
+                self.stmt_h,
+                (bind_idx + 1) as USmallInt,
+                ParamType::Input,
+                binds[bind_idx].0,
+                binds[bind_idx].1,
+                binds[bind_idx].2 as ULen,
+                binds[bind_idx].3 as SmallInt,
+                binds[bind_idx].4,
+                0,
+                &mut binds[bind_idx].2 as *mut Len
+            );
+
+            if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
+                let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.as_handle());
+                return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, error_str).to_result();
+            }
         }
 
         let mut col_buffer = HashMap::with_capacity(3);
 
-        let real_stmt = self.stmt_h.clone().as_hstmt();
-
-        let ret = SQLExecDirect(real_stmt, query.as_ptr(), NTS as Integer);
+        let ret = SQLExecDirect(self.stmt_h, query.as_ptr(), query.len() as Integer);
 
         if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
-            let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
+            let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.as_handle());
             return CommonError::new(&CommonDefaultErrorKind::ExecuteFail, error_str).to_result();
         }
         let mut cols_count = 0 as SmallInt;
-        let ret = SQLNumResultCols(real_stmt, &mut cols_count as *mut SmallInt);
+        let ret = SQLNumResultCols(self.stmt_h, &mut cols_count as *mut SmallInt);
 
         if  ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
-            let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
+            let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.as_handle());
             return CommonError::new(&CommonDefaultErrorKind::ExecuteFail, error_str).to_result();
         }
 
@@ -199,16 +207,17 @@ impl ODBCStmt {
             return Ok(PairValueEnum::Null);
         }
 
-        let cols = Self::get_cols_meta_data(self.stmt_h.clone(), cols_count as usize).map_err(|e| {
+        let cols = Self::get_cols_meta_data(&self.stmt_h, cols_count as usize).map_err(|e| {
             CommonError::extend(&CommonDefaultErrorKind::ExecuteFail, "get cols failed", e)
         })?;
 
         for col in &cols {
-            col_buffer.insert(col.0.clone(), Vec::with_capacity(5));
+            let a = col.0.clone();
+            col_buffer.insert(a, Vec::with_capacity(5));
         }
 
         loop {
-            let ret = SQLFetch(real_stmt);
+            let ret = SQLFetch(self.stmt_h);
             if ret == SqlReturn::NO_DATA {
                 if col_buffer.is_empty() {
                     return Ok(PairValueEnum::Null);
@@ -217,7 +226,7 @@ impl ODBCStmt {
             }
 
             if ret != SqlReturn::SUCCESS && ret != SqlReturn::SUCCESS_WITH_INFO {
-                let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
+                let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.as_handle());
                 return CommonError::new(&CommonDefaultErrorKind::FetchFailed, error_str).to_result();
             }
 
@@ -244,7 +253,7 @@ impl ODBCStmt {
                         Ok((&mut double_buffer as *mut libc::c_double) as Pointer)
                     },
                     CDataType::Char => {
-                        Ok(string_buffer.as_mut_ptr()  as Pointer)
+                        Ok(string_buffer.as_mut_slice().as_mut_ptr()  as Pointer)
                     },
                     CDataType::SBigInt => {
                         Ok((&mut bigint_buffer as *mut libc::c_longlong) as Pointer)
@@ -255,7 +264,7 @@ impl ODBCStmt {
                 }?;
 
                 let data_ret = SQLGetData(
-                    real_stmt,
+                    self.stmt_h,
                     idx  as USmallInt + 1,
                     ctype,
                     buffer_ptr,
@@ -263,11 +272,11 @@ impl ODBCStmt {
                     &mut is_chk_null_len as *mut Len);
 
                 if data_ret != SqlReturn::SUCCESS && data_ret != SqlReturn::SUCCESS_WITH_INFO {
-                    let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.clone());
+                    let error_str = get_odbc_diagnostics(HandleType::Stmt, self.stmt_h.as_handle());
                     return CommonError::new(&CommonDefaultErrorKind::FetchFailed, error_str).to_result();
                 }
 
-                if is_chk_null_len < 0 {
+                if is_chk_null_len == NULL_DATA {
                     col_buffer.get_mut(&cols[idx].0)
                         .expect(format!("broken col data name {}", &cols[idx].0).as_str())
                         .push(PairValueEnum::Null);
@@ -295,7 +304,9 @@ impl ODBCStmt {
                         },
                         CDataType::Char => {
                             let s = String::from_utf8(
-                                string_buffer.iter().map(|&c| c as u8).collect::<Vec<u8>>()).map_err(|e| {
+                                string_buffer.iter()
+                                    .take_while(|&&c| c != 0)
+                                    .map(|&c| c as u8).collect::<Vec<u8>>()).map_err(|e| {
                                 CommonError::new(&CommonDefaultErrorKind::SystemCallFail, format!("{}", e))
                             })?;
 
@@ -321,7 +332,7 @@ impl ODBCStmt {
 impl Drop for ODBCStmt {
     fn drop(&mut self) {
         unsafe {
-            let _ = SQLFreeHandle(HandleType::Stmt, self.stmt_h);
+            let _ = SQLFreeHandle(HandleType::Stmt, self.stmt_h.as_handle());
         }
     }
 }
@@ -394,10 +405,10 @@ impl PairExecutor for OdbcConnection {
                 return CommonError::new(&CommonDefaultErrorKind::ThirdLibCallFail, "STMT ALLOC FAILED").to_result();
             }
 
-            ODBCStmt::new(stmt)
+            ODBCStmt::new(stmt.as_hstmt())
         };
 
-       let data = unsafe {
+        let data = unsafe {
             if let PairValueEnum::Array(arr) = param {
                 stmt.execute(query, Some(arr.as_slice()))
             } else {
@@ -422,8 +433,12 @@ impl PairExecutor for OdbcConnection {
             },
             PairValueEnum::Map(m) => {
                 let pair = m.get(&self.current_time_col_name);
-                if let Some(PairValueEnum::BigInt(d)) = pair {
-                    Ok(Duration::from_millis(*d as u64))
+                if let Some(PairValueEnum::Array(cols)) = pair {
+                    if let Some(PairValueEnum::BigInt(d)) = cols.get(0) {
+                        Ok(Duration::from_millis(*d as u64))
+                    } else {
+                        CommonError::new(&CommonDefaultErrorKind::Etc, "get data, but no array data").to_result()
+                    }
                 } else {
                     CommonError::new(&CommonDefaultErrorKind::Etc, "get data failed").to_result()
                 }
