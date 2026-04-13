@@ -24,6 +24,3 @@ pub mod signal {
         crate::init::signal::is_set_signal(num)
     }
 }
-pub mod logger {
-    pub use crate::c_core::logger::*;
-}

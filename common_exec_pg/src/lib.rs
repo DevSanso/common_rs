@@ -12,7 +12,7 @@ pub fn create_pg_pair_conn_pool(name : String, info : PairExecutorInfo, alloc_si
         let real_fn  = move |_ : ()| {
             let conn_info = info.clone();
             let conn = PostgresConnection::new(conn_info.user.as_str(),
-                                               conn_info.password.as_str(),conn_info.addr.as_str(), conn_info.name.as_str());
+                                               conn_info.password.as_str(),conn_info.addr[0].as_str(), conn_info.name.as_str(), conn_info.timeout_sec);
 
             match conn {
                 Ok(ok) => Ok(Box::new(ok) as Box<dyn PairExecutor>),

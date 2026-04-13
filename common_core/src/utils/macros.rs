@@ -12,5 +12,15 @@ macro_rules! func {
     };
 }
 
+#[macro_export]
+macro_rules! core_err_log {
+    ($($arg:tt)*) => {{
+        use chrono::Local;
+
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        eprintln!("{} - {} - {}", now, $crate::utils::macros::func!(), format!($($arg)*));
+    }};
+}
 pub use func;
+pub use core_err_log;
 

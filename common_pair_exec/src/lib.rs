@@ -23,7 +23,7 @@ impl Default for PairValueEnum {
 
 #[derive(Debug,Clone, Default)]
 pub struct PairExecutorInfo {
-    pub addr : String,
+    pub addr : Vec<String>,
     pub name : String,
     pub user : String,
     pub password : String,

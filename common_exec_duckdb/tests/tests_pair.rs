@@ -11,7 +11,7 @@ fn connect_duckdb_db() -> Result<common_pair_exec::PairExecutorPool, CommonError
         CommonError::new(&CommonDefaultErrorKind::Etc, e.to_string())
     })?;
     let info = PairExecutorInfo {
-        addr: read_toml["addr"].clone(),
+        addr: vec![read_toml["addr"].clone()],
         name: "".to_string(),
         user: "".to_string(),
         password: "".to_string(),

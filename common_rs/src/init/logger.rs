@@ -71,7 +71,6 @@ fn set_log_builder(level: Level, base_dir_opt : Option<&'_ str>, max_size : usiz
     }
     Ok(dispatch)
 }
-pub(crate) static LOGGER_FILE_LEVEL_IS_TRACE : OnceLock<bool> = OnceLock::new();
 
 pub fn init_once(log_level : &'_ str, log_dir : Option<&'_ str>, max_size : usize) -> Result<(), CommonError> {
     let mut ret : Result<(), CommonError> = Ok(());
@@ -90,9 +89,6 @@ pub fn init_once(log_level : &'_ str, log_dir : Option<&'_ str>, max_size : usiz
 
     LOGGER_INIT_ONCE.call_once(|| {
         let level = convert_str_to_log_level(log_level);
-        if level == Level::Trace {
-            LOGGER_FILE_LEVEL_IS_TRACE.get_or_init(|| true);
-        }
 
         let builder = set_log_builder(level, log_dir, max_size,logforth::starter_log::builder()).map_err(|e| {
             CommonError::extend(&CommonDefaultErrorKind::InitFailed, "log builder failed", e).to_result()

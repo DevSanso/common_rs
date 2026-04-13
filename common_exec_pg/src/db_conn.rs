@@ -42,12 +42,12 @@ fn convert_common_pair_value_to_pg_param(param : &'_ [PairValueEnum]) -> Result<
 }
 
 impl PostgresConnection {
-    fn create_pg_url(username : &'_ str, password : &'_ str, addr : &'_ str, db_name : &'_ str) -> String {
-        format!("postgresql://{username}:{password}@{addr}/{db_name}?connect_timeout=60")
+    fn create_pg_url(username : &'_ str, password : &'_ str, addr : &'_ str, db_name : &'_ str, timeout_sec : u32) -> String {
+        format!("postgresql://{username}:{password}@{addr}/{db_name}?statement_timeout={}", timeout_sec * 1000)
     }
 
-    pub(crate) fn new(user : &'_ str, password : &'_ str, addr : &'_ str, name : &'_ str) -> Result<Self, CommonError> {
-        let url = Self::create_pg_url(user, password, addr, name);
+    pub(crate) fn new(user : &'_ str, password : &'_ str, addr : &'_ str, name : &'_ str, timeout_sec : u32) -> Result<Self, CommonError> {
+        let url = Self::create_pg_url(user, password, addr, name, timeout_sec);
 
         let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
