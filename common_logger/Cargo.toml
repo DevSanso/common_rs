@@ -10,6 +10,10 @@ common_pair_exec = {path = "../common_pair_exec"}
 common_core = {path = "../common_core"}
 chrono = "0.4.44"
 
+[dev-dependencies]
+toml = "0.8.19"
+
+
 [[test]]
 name = "test_logger"
 path = "tests/tests_log.rs"

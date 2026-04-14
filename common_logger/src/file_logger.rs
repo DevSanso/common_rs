@@ -61,7 +61,20 @@ impl FileLogger {
         format!("{:?}", thread::current().id())
     }
 
-    fn format_line(&self, name: &str, level: &str, message: &str) -> String {
+    fn format_line(&self, name: &str, file: &str, func: &str, level: &str, message: &str) -> String {
+        format!(
+            "{:21},{:10}({:128}:{:256}) at {:.60}({:.10}):{}",
+            Self::now_string(),
+            Self::thread_id(),
+            file,
+            func,
+            name,
+            level,
+            message
+        )
+    }
+
+    fn format_trace_line(&self, name: &str, level: &str, message: &str) -> String {
         format!(
             "{:21},{:10} at {:.60}({:.10}):{}",
             Self::now_string(),
@@ -90,24 +103,24 @@ impl FileLogger {
 }
 
 impl crate::Logger for FileLogger {
-    fn debug(&self, name: &str, message: &str) {
+    fn debug(&self, name: &str, func : &'_ str, file : &'_ str, message: &str) {
         if self.level < LogLevel::Debug {
             return;
         }
-        let line = self.format_line(name, "DEBUG", message);
+        let line = self.format_line(name, file, func, "DEBUG", message);
         self.write_line(name, &line);
     }
 
-    fn info(&self, name: &str, message: &str) {
+    fn info(&self, name: &str, func : &'_ str, file : &'_ str, message: &str) {
         if self.level < LogLevel::Info {
             return;
         }
-        let line = self.format_line(name, "INFO", message);
+        let line = self.format_line(name, file, func, "INFO", message);
         self.write_line(name, &line);
     }
 
-    fn error(&self, name: &str, message: &str) {
-        let line = self.format_line(name, "ERROR", message);
+    fn error(&self, name: &str, func : &'_ str, file : &'_ str, message: &str) {
+        let line = self.format_line(name, file, func, "ERROR", message);
         self.write_line(name, &line);
     }
 
@@ -116,7 +129,7 @@ impl crate::Logger for FileLogger {
             return;
         }
         let msg = format!("{}={}", key, value);
-        let line = self.format_line(name, "TRACE", &msg);
+        let line = self.format_trace_line(name, "TRACE", &msg);
         self.write_line(name, &line);
     }
 }
