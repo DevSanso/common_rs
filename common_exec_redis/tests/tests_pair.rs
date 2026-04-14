@@ -11,7 +11,7 @@ fn connect_redis_db() -> Result<common_pair_exec::PairExecutorPool, CommonError>
         CommonError::new(&CommonDefaultErrorKind::Etc, e.to_string())
     })?;
     let info = PairExecutorInfo {
-        addr: read_toml["addr"].clone(),
+        addr: vec![read_toml["addr"].clone()],
         name: read_toml["name"].clone(),
         user: read_toml["user"].clone(),
         password: read_toml["password"].clone(),

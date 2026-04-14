@@ -11,7 +11,7 @@ pub fn create_duckdb_pair_conn_pool(name : String, info : PairExecutorInfo, allo
         let global_info = info;
 
         let real_fn  = move |_ : ()| {
-            let conn = DuckDBConnection::new(global_info.clone().addr.as_str());
+            let conn = DuckDBConnection::new(global_info.clone().addr[0].as_str());
 
             match conn {
                 Ok(ok) => Ok(Box::new(ok) as Box<dyn PairExecutor>),

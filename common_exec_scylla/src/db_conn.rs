@@ -2,6 +2,7 @@ mod util;
 
 use std::collections::HashMap;
 use std::time::Duration;
+use scylla::client::execution_profile::ExecutionProfile;
 use scylla::serialize::value::SerializeValue;
 use tokio::runtime::{Builder, Runtime};
 use scylla::client::session::Session;
@@ -19,7 +20,7 @@ pub struct ScyllaConnection {
 
 #[derive(Debug,Clone, Default)]
 pub struct ScyllaConnInfo {
-    pub addr : String,
+    pub addr : Vec<String>,
     pub name : String,
     pub user : String,
     pub password : String,
@@ -27,19 +28,20 @@ pub struct ScyllaConnInfo {
 }
 
 impl ScyllaConnection {
-    pub(crate) fn new(infos : Vec<ScyllaConnInfo>) -> Result<Self, CommonError> {
-        if infos.len() <= 0 {
-            return CommonError::new(&CommonDefaultErrorKind::NoData, "scylla connection info array size of zero").to_result();
-        }
-
+    pub(crate) fn new(infos : ScyllaConnInfo) -> Result<Self, CommonError> {
         let mut builder = SessionBuilder::new();
+        let mut profile_builder = ExecutionProfile::builder();
 
-        for info in infos {
+        for addr in &infos.addr {
             builder = builder
-                .known_node(info.addr)
-                .user(info.user, info.password)
-                .use_keyspace(info.name, false);
+                .known_node(addr)
         }
+        profile_builder = profile_builder
+            .request_timeout(Some(Duration::from_secs(infos.timeout_sec as u64)));
+
+        builder = builder.user(infos.user.clone(), infos.password.clone())
+            .use_keyspace(infos.name.clone(), false)
+            .default_execution_profile_handle(profile_builder.build().into_handle());
 
         let rt = Builder::new_current_thread()
             .enable_all()

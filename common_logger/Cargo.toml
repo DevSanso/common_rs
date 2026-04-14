@@ -1,0 +1,19 @@
+[package]
+name = "common_logger"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common_err = {path = "../common_err"}
+common_exec_scylla = {path = "../common_exec_scylla"}
+common_pair_exec = {path = "../common_pair_exec"}
+common_core = {path = "../common_core"}
+chrono = "0.4.44"
+
+[dev-dependencies]
+toml = "0.8.19"
+
+
+[[test]]
+name = "test_logger"
+path = "tests/tests_log.rs"

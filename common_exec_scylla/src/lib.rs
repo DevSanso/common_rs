@@ -7,20 +7,16 @@ use common_pair_exec::{PairExecutor, PairExecutorInfo, PairExecutorPool};
 use db_conn::ScyllaConnection;
 use crate::db_conn::ScyllaConnInfo;
 
-pub fn create_scylla_pair_conn_pool(name : String, info : Vec<PairExecutorInfo>, alloc_size : usize) -> PairExecutorPool {
-    let gen_fn : Box<dyn Fn(()) -> Result<Box<dyn PairExecutor>, CommonError>> = (|info : Vec<PairExecutorInfo>| {
+pub fn create_scylla_pair_conn_pool(name : String, info : PairExecutorInfo, alloc_size : usize) -> PairExecutorPool {
+    let gen_fn : Box<dyn Fn(()) -> Result<Box<dyn PairExecutor>, CommonError>> = (|info : PairExecutorInfo| {
         let real_fn  = move |_ : ()| {
-            let conn_info = info.clone().iter().fold(vec![], |mut acc, x| {
-                acc.push(ScyllaConnInfo {
-                    addr: x.addr.clone(),
-                    name: x.name.clone(),
-                    user: x.user.clone(),
-                    password: x.password.clone(),
-                    timeout_sec: x.timeout_sec,
-                });
-
-                acc
-            });
+            let conn_info = ScyllaConnInfo {
+                addr: info.addr.clone(),
+                name: info.name.clone(),
+                user: info.user.clone(),
+                password: info.password.clone(),
+                timeout_sec: info.timeout_sec,
+            };
             let conn = ScyllaConnection::new(conn_info);
 
             match conn {

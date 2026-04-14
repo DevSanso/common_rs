@@ -13,7 +13,7 @@ pub fn create_redis_pair_conn_pool(name : String, info : PairExecutorInfo, alloc
         let real_fn  = move |_ : ()| {
             let conn_info = info.clone();
             let conn = RedisConnection::new(
-                conn_info.addr.as_str(), 
+                conn_info.addr[0].as_str(), 
                 conn_info.user.as_str(), 
                 conn_info.password.as_str(), 
                 conn_info.name.as_str());

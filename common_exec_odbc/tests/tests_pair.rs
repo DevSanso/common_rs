@@ -10,7 +10,7 @@ fn connect_odbc_db() -> Result<common_pair_exec::PairExecutorPool, CommonError> 
         CommonError::new(&CommonDefaultErrorKind::Etc, e.to_string())
     })?;
     let info = PairExecutorInfo {
-        addr: String::from(""),
+        addr: vec![String::from("")],
         name: String::from(""),
         user: String::from(""),
         password: String::from(""),

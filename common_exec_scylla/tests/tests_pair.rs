@@ -11,7 +11,7 @@ fn connect_scylla_db() -> Result<common_pair_exec::PairExecutorPool, CommonError
         CommonError::new(&CommonDefaultErrorKind::Etc, e.to_string())
     })?;
     let info = PairExecutorInfo {
-        addr: read_toml["addr"].clone(),
+        addr: vec![read_toml["addr"].clone()],
         name: read_toml["name"].clone(),
         user: read_toml["user"].clone(),
         password: read_toml["password"].clone(),
@@ -19,7 +19,7 @@ fn connect_scylla_db() -> Result<common_pair_exec::PairExecutorPool, CommonError
         extend: None
     };
 
-    let p = create_scylla_pair_conn_pool("test".to_string(), vec![info], 5);
+    let p = create_scylla_pair_conn_pool("test".to_string(), info, 5);
     Ok(p)
 }
 
