@@ -1,9 +1,10 @@
-use common_err::CommonError;
-use common_err::gen::CommonDefaultErrorKind;
-use crate::init::logger::LoggerConf;
-
 pub(crate) mod signal;
 pub(crate) mod logger;
+
+use common_err::CommonError;
+use common_err::gen::CommonDefaultErrorKind;
+
+pub use crate::init::logger::LoggerConf;
 
 pub struct InitConfig {
     pub logger_conf : LoggerConf,
