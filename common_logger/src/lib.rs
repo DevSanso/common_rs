@@ -1,10 +1,12 @@
 use std::sync::Arc;
 use common_err::CommonError;
+use crate::console_logger::ConsoleLogger;
 use crate::file_logger::FileLogger;
 use crate::scylla_logger::ScyllaLogger;
 
 mod file_logger;
 mod scylla_logger;
+mod console_logger;
 
 #[derive(PartialOrd, PartialEq)]
 pub enum LogLevel {
@@ -23,7 +25,8 @@ pub trait Logger : Send + Sync {
 
 pub enum LoggerConfig {
     File(String, LogLevel, u64),
-    Scylla(String, String, String, String, String, LogLevel, u64)
+    Scylla(String, String, String, String, String, LogLevel, u64),
+    Console
 }
 
 pub fn new_logger(config: LoggerConfig) -> Result<Arc<dyn Logger>, CommonError> {
@@ -33,6 +36,9 @@ pub fn new_logger(config: LoggerConfig) -> Result<Arc<dyn Logger>, CommonError> 
         },
         LoggerConfig::Scylla(name, addr, dbname, user, passwd, level, ttl) => {
             Ok(Arc::new(ScyllaLogger::new(name, addr, dbname, user, passwd, level, ttl)?))
+        },
+        LoggerConfig::Console => {
+            Ok(Arc::new(ConsoleLogger::new()?))
         }
     }
 }
