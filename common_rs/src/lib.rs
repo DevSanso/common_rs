@@ -34,7 +34,8 @@ pub mod logger {
                 let file = caller.file();
 
                 let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
-                l.debug($name, $crate::c_core::utils::macros::func!(), file, format!($($arg)*));
+                let m = format!($($arg)*);
+                l.debug($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
         };
     }
@@ -47,7 +48,8 @@ pub mod logger {
                 let file = caller.file();
 
                 let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
-                l.info($name, $crate::c_core::utils::macros::func!(), file, format!($($arg)*));
+                let m = format!($($arg)*);
+                l.info($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
         };
     }
@@ -60,7 +62,8 @@ pub mod logger {
                 let file = caller.file();
 
                 let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
-                l.error($name, $crate::c_core::utils::macros::func!(), file, format!($($arg)*));
+                let m = format!($($arg)*);
+                l.error($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
         };
     }
