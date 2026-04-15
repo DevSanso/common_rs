@@ -9,15 +9,6 @@ use common_err::gen::CommonDefaultErrorKind;
 use common_logger::Logger;
 
 pub type LoggerConf = common_logger::LoggerConfig;
-
-pub fn convert_str_to_log_level(log_level : &'_ str) -> common_logger::LogLevel {
-    match log_level {
-        "debug" => common_logger::LogLevel::Debug,
-        "trace" => common_logger::LogLevel::Trace,
-        "info" => common_logger::LogLevel::Info,
-        _ => common_logger::LogLevel::Error
-    }
-}
 pub(crate) static LOGGER_LAZY : OnceLock<Arc<dyn Logger>> = OnceLock::new();
 static IS_INITIALIZED : Once = Once::new();
 pub fn init_once(conf : LoggerConf) -> Result<(), CommonError> {
