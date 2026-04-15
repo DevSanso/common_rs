@@ -33,7 +33,7 @@ pub mod logger {
                 let caller = std::panic::Location::caller();
                 let file = caller.file();
 
-                let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
+                let l = $crate::init::logger::get_logger();
                 let m = format!($($arg)*);
                 l.debug($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
@@ -47,7 +47,7 @@ pub mod logger {
                 let caller = std::panic::Location::caller();
                 let file = caller.file();
 
-                let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
+                let l = $crate::init::logger::get_logger();
                 let m = format!($($arg)*);
                 l.info($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
@@ -61,7 +61,7 @@ pub mod logger {
                 let caller = std::panic::Location::caller();
                 let file = caller.file();
 
-                let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
+                let l = $crate::init::logger::get_logger();
                 let m = format!($($arg)*);
                 l.error($name, $crate::c_core::utils::macros::func!(), file, m.as_str());
             }
@@ -72,7 +72,7 @@ pub mod logger {
     macro_rules! log_trace {
         ($name:expr, $key:expr, $value:expr) => {
             {
-                let l = $crate::init::logger::LOGGER_LAZY.get().expect("single logger is none");
+                let l = $crate::init::logger::get_logger();
                 l.trace($name, $key, $value);
             }
         };

@@ -1,5 +1,5 @@
 pub(crate) mod signal;
-pub(crate) mod logger;
+pub mod logger;
 
 use common_err::CommonError;
 use common_err::gen::CommonDefaultErrorKind;

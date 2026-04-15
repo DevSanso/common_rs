@@ -9,8 +9,12 @@ use common_err::gen::CommonDefaultErrorKind;
 use common_logger::Logger;
 
 pub type LoggerConf = common_logger::LoggerConfig;
-pub(crate) static LOGGER_LAZY : OnceLock<Arc<dyn Logger>> = OnceLock::new();
+static LOGGER_LAZY : OnceLock<Arc<dyn Logger>> = OnceLock::new();
 static IS_INITIALIZED : Once = Once::new();
+
+pub fn get_logger() -> &'static Arc<dyn Logger> {
+    LOGGER_LAZY.get().expect("Logger not initialized")
+}
 pub fn init_once(conf : LoggerConf) -> Result<(), CommonError> {
     let mut ret : Result<(), CommonError> = Ok(());
 
