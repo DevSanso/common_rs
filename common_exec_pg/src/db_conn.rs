@@ -42,18 +42,26 @@ fn convert_common_pair_value_to_pg_param(param : &'_ [PairValueEnum]) -> Result<
 }
 
 impl PostgresConnection {
-    fn create_pg_url(username : &'_ str, password : &'_ str, addr : &'_ str, db_name : &'_ str, timeout_sec : u32) -> String {
-        format!("postgresql://{username}:{password}@{addr}/{db_name}?statement_timeout={}", timeout_sec * 1000)
+    fn create_pg_url(username : &'_ str, password : &'_ str, addr : &'_ str, db_name : &'_ str) -> String {
+        format!("postgresql://{username}:{password}@{addr}/{db_name}")
     }
 
-    pub(crate) fn new(user : &'_ str, password : &'_ str, addr : &'_ str, name : &'_ str, timeout_sec : u32) -> Result<Self, CommonError> {
-        let url = Self::create_pg_url(user, password, addr, name, timeout_sec);
+    pub(crate) fn new(app_name : &'_ str, user : &'_ str, password : &'_ str, addr : &'_ str, name : &'_ str, timeout_sec : u32) -> Result<Self, CommonError> {
+        let url = Self::create_pg_url(user, password, addr, name);
 
-        let conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
+        let mut conn = match postgres::Client::connect(url.as_str(), postgres::NoTls) {
             Ok(ok) => Ok(ok),
             Err(err) => CommonError::new(&CommonDefaultErrorKind::ConnectFail, 
                                          format!("PostgresConnection - new - {}", err.to_string())).to_result()
         }?;
+
+        conn.execute(format!("SET statement_timeout='{timeout_sec}s'").as_str(), &[]).map_err(|e| {
+            CommonError::new(&CommonDefaultErrorKind::ExecuteFail, e.to_string())
+        })?;
+
+        conn.execute(format!("set application_name = '{app_name}'").as_str(), &[]).map_err(|e| {
+            CommonError::new(&CommonDefaultErrorKind::ExecuteFail, e.to_string())
+        })?;
 
         Ok(PostgresConnection {
             client : conn

@@ -7,11 +7,12 @@ use common_pair_exec::{PairExecutor, PairExecutorInfo, PairExecutorPool};
 use db_conn::PostgresConnection;
 
 pub fn create_pg_pair_conn_pool(name : String, info : PairExecutorInfo, alloc_size : usize) -> PairExecutorPool {
+    let app_name = name.clone();
+    
     let gen_fn : Box<dyn Fn(()) -> Result<Box<dyn PairExecutor>, CommonError>> = (|info : PairExecutorInfo| {
-
         let real_fn  = move |_ : ()| {
             let conn_info = info.clone();
-            let conn = PostgresConnection::new(conn_info.user.as_str(),
+            let conn = PostgresConnection::new(app_name.as_str(), conn_info.user.as_str(),
                                                conn_info.password.as_str(),conn_info.addr[0].as_str(), conn_info.name.as_str(), conn_info.timeout_sec);
 
             match conn {
