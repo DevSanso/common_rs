@@ -8,12 +8,12 @@ use crate::LogLevel;
 
 const LOG_TABLE : &'static str = "create table if not exists comm_log (
     identifier text, name text, log_timestamp timeuuid, level text, func text, file text, message text,
-    primary key (identifier, name, log_timestamp, level)
+    primary key (identifier, log_timestamp, name, level)
 )";
 
 const LOG_TRACE_TABLE : &'static str = "create table if not exists trace_log (
     identifier text, name text, log_timestamp timeuuid, key text, value double,
-    primary key (identifier, name, log_timestamp, key)
+    primary key (identifier, log_timestamp,  key, name)
 )";
 
 macro_rules! insert_query {
