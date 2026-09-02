@@ -20,6 +20,19 @@ pub mod signal {
     pub fn is_set_signal(num : i32) -> bool {
         crate::init::signal::is_set_signal(num)
     }
+    pub fn get_set_signals(export : &[i32]) -> Vec<i32> {
+        let chk : Vec<&i32> = crate::init::signal::SIGNALS
+            .iter()
+            .filter(|&s| {!export.contains(s)}).collect();
+
+        let mut ret = Vec::with_capacity(chk.len());
+        for chk_sig in chk {
+            if is_set_signal(*chk_sig) {
+                ret.push(*chk_sig);
+            }
+        }
+        ret
+    }
 }
 
 pub mod logger {

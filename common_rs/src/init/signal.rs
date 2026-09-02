@@ -29,7 +29,7 @@ pub mod signum {
 }
 
 #[cfg(target_os = "linux")]
-const SIGNALS: &[libc::c_int] = &[
+pub(crate) const SIGNALS: &[libc::c_int] = &[
     libc::SIGHUP,
     libc::SIGINT,
     libc::SIGQUIT,
@@ -44,7 +44,7 @@ const SIGNALS: &[libc::c_int] = &[
 ];
 
 #[cfg(target_os = "windows")]
-const SIGNALS: &[libc::c_int] = &[
+pub(crate) const SIGNALS: &[libc::c_int] = &[
     libc::SIGINT,
     libc::SIGABRT,
     libc::SIGFPE,
