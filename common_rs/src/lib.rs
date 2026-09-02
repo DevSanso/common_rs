@@ -15,10 +15,7 @@ pub mod exec {
     pub use common_exec_odbc as odbc;
 }
 pub mod signal {
-    pub use crate::init::signal::SIGABRT;
-    pub use crate::init::signal::SIGBUS;
-    pub use crate::init::signal::SIGINT;
-    pub use crate::init::signal::SIGPIPE;
+    pub use crate::init::signal::signum::*;
 
     pub fn is_set_signal(num : i32) -> bool {
         crate::init::signal::is_set_signal(num)

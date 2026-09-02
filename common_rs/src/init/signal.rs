@@ -2,10 +2,59 @@ use std::sync::{Once, Mutex, LazyLock};
 use std::collections::HashMap;
 
 
-pub use libc::SIGINT;
-pub use libc::SIGABRT;
-pub use libc::SIGBUS;
-pub use libc::SIGPIPE;
+
+#[cfg(target_os = "linux")]
+pub mod signum {
+    pub use libc::SIGHUP;
+    pub use libc::SIGINT;
+    pub use libc::SIGQUIT;
+    pub use libc::SIGILL;
+    pub use libc::SIGABRT;
+    pub use libc::SIGFPE;
+    pub use libc::SIGSEGV;
+    pub use libc::SIGPIPE;
+    pub use libc::SIGTERM;
+    pub use libc::SIGUSR1;
+    pub use libc::SIGUSR2;
+}
+
+#[cfg(target_os = "windows")]
+pub mod signum {
+    pub use libc::SIGINT;
+    pub use libc::SIGABRT;
+    pub use libc::SIGFPE;
+    pub use libc::SIGILL;
+    pub use libc::SIGSEGV;
+    pub use libc::SIGTERM;
+}
+
+#[cfg(target_os = "linux")]
+const SIGNALS: &[libc::c_int] = &[
+    libc::SIGHUP,
+    libc::SIGINT,
+    libc::SIGQUIT,
+    libc::SIGILL,
+    libc::SIGABRT,
+    libc::SIGFPE,
+    libc::SIGSEGV,
+    libc::SIGPIPE,
+    libc::SIGTERM,
+    libc::SIGUSR1,
+    libc::SIGUSR2,
+];
+
+#[cfg(target_os = "windows")]
+const SIGNALS: &[libc::c_int] = &[
+    libc::SIGINT,
+    libc::SIGABRT,
+    libc::SIGFPE,
+    libc::SIGILL,
+    libc::SIGSEGV,
+    libc::SIGTERM,
+];
+
+
+
 
 static SIGNAL_ONCE : Once = Once::new();
 static SIGNAL_MAP : LazyLock<Mutex<HashMap<i32, bool>>> = LazyLock::new(|| {
@@ -14,28 +63,20 @@ static SIGNAL_MAP : LazyLock<Mutex<HashMap<i32, bool>>> = LazyLock::new(|| {
 
 extern "C" fn signal_handle(num : libc::c_int) {
     let mut map = SIGNAL_MAP.lock().unwrap();
-    match num {
-        SIGINT => *map.get_mut(&SIGINT).unwrap() = true,
-        SIGABRT => *map.get_mut(&SIGABRT).unwrap() = true,
-        SIGBUS => *map.get_mut(&SIGBUS).unwrap() = true,
-        SIGPIPE => *map.get_mut(&SIGPIPE).unwrap() = true,
-        _ => {}
-    }
+
+    let idx : i32 = num;
+    map.entry(idx).or_insert(true);
 }
 
 pub fn init_once() {
     SIGNAL_ONCE.call_once(|| {
         unsafe {
             let mut map = SIGNAL_MAP.lock().unwrap();
-            map.insert(SIGINT, false);
-            map.insert(SIGABRT, false);
-            map.insert(SIGBUS, false);
-            map.insert(SIGPIPE, false);
 
-            libc::signal(SIGINT, signal_handle as usize);
-            libc::signal(SIGABRT, signal_handle as usize);
-            libc::signal(SIGBUS, signal_handle as usize);
-            libc::signal(SIGPIPE, signal_handle as usize);
+            for sig in SIGNALS {
+                map.insert(*sig, true);
+                libc::signal(*sig, signal_handle as usize);
+            }
         }
     });
 }
